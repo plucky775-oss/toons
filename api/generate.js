@@ -96,21 +96,27 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: "Gemma API key is not configured" });
   }
 
-  const { issue, tone, audience, ending } = req.body || {};
+  const { issue, tone, audience, ending, articleTitle, articleText, sourceUrl } = req.body || {};
   const normalizedIssue = String(issue || "").trim();
 
   if (!normalizedIssue || normalizedIssue.length > 180) {
     return res.status(400).json({ error: "Invalid issue" });
   }
 
+  const articleContext = String(articleText || "").trim().slice(0,10000);
   const userPrompt = `
 [사용자 입력]
 사회적 이슈: ${normalizedIssue}
+기사 제목: ${String(articleTitle || "").slice(0,180)}
+기사 링크: ${String(sourceUrl || "").slice(0,500)}
+기사 본문 발췌:
+${articleContext || "제공되지 않음"}
+
 만화 분위기: ${String(tone || "공감형")}
 주요 독자층: ${String(audience || "일반 성인")}
 결말 방식: ${String(ending || "해결 메시지")}
 
-위 조건에 맞는 한국어 4컷 만화 대본을 작성하세요.
+기사에 없는 사실을 추가하지 말고, 핵심 쟁점을 일반인이 이해하기 쉬운 한국어 4컷 만화로 작성하세요.
 `;
 
   try {
