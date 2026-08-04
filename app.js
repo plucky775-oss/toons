@@ -118,10 +118,11 @@ $("#generateBtn").addEventListener("click", async () => {
     if($("#aiMode").checked){
       try{
         data = await aiScript(payload);
-        $("#status").textContent = "무료 AI 대본으로 완성했습니다.";
+        const usedModel = data?.model || "gemma-4";
+        $("#status").textContent = `Gemma 4 대본으로 완성했습니다. (${usedModel})`;
       }catch(e){
         data = offlineScript(payload.issue,payload.tone,payload.audience,payload.ending);
-        $("#status").textContent = "AI 연결 없이 오프라인 모드로 완성했습니다.";
+        $("#status").textContent = "Gemma 4 연결 실패로 오프라인 모드에서 완성했습니다.";
       }
     }else{
       data = offlineScript(payload.issue,payload.tone,payload.audience,payload.ending);

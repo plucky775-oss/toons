@@ -5,7 +5,7 @@
 ## 작동 방식
 
 1. 사용자가 사회적 이슈와 분위기를 입력합니다.
-2. `GEMINI_API_KEY`가 있으면 Gemini 무료 티어로 대본을 생성합니다.
+2. `GEMINI_API_KEY`가 있으면 Gemma 4로 대본을 생성합니다.
 3. 키가 없거나 무료 한도가 끝나면 내장 오프라인 대본 생성기로 자동 전환합니다.
 4. SVG 캐릭터를 조합해 4컷을 만들고 PNG로 저장합니다.
 
@@ -36,7 +36,7 @@ vercel dev
 
 - SVG 그림 생성: 무료
 - 오프라인 대본: 무료·무제한
-- Gemini 대본: Google이 제공하는 무료 티어 범위 내 무료
+- Gemma 4 대본: Google이 제공하는 무료 티어 범위 내 무료
 - Vercel Hobby 배포: 개인·비상업적 사용 조건 확인 필요
 
 ## 다음 확장 아이디어
@@ -46,3 +46,27 @@ vercel dev
 - 1:1 SNS 이미지 저장
 - Firebase 작품 보관함
 - 관리자용 금칙어 및 사실확인 단계
+
+
+## Gemma 4 설정
+
+기본 모델은 Google Gemini API에서 호스팅되는 다음 모델입니다.
+
+```text
+gemma-4-26b-a4b-it
+```
+
+Vercel 환경변수:
+
+```text
+GEMINI_API_KEY=Google AI Studio에서 발급한 API 키
+```
+
+선택적으로 모델을 변경할 수 있습니다.
+
+```text
+GEMMA_MODEL=gemma-4-31b-it
+```
+
+대본 생성에는 속도와 비용을 고려해 `gemma-4-26b-a4b-it`를 기본값으로 사용합니다.
+호출 실패, 키 미설정, 무료 한도 초과 시 앱은 자동으로 오프라인 대본 모드로 전환됩니다.
