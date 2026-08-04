@@ -1,4 +1,29 @@
-const ANALYSIS_MODEL = process.env.ANALYSIS_MODEL || process.env.GEMMA_MODEL || "gemini-3.1-flash-lite";
+
+function normalizeModelName(value = "") {
+  return String(value)
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/^ANALYSIS_MODEL\s*=\s*/i, "")
+    .replace(/^models\//i, "")
+    .replace(/\s+/g, "");
+}
+
+function getModelCandidates() {
+  const requested = normalizeModelName(
+    process.env.ANALYSIS_MODEL || process.env.GEMMA_MODEL || ""
+  );
+
+  return [...new Set([
+    requested,
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash"
+  ].filter(Boolean))];
+}
+
+function isModelNameError(status, message = "") {
+  return status === 400 && /model|unexpected model name format|not found|not supported/i.test(message);
+}
+
 
 function cleanLine(value = "") {
   return String(value)
@@ -95,36 +120,45 @@ function extractText(raw) {
     .trim() || "";
 }
 
-async function callGemma(apiKey, parts) {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(ANALYSIS_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts }],
-        generationConfig: {
-          temperature: 0.1,
-          topP: 0.8,
-          maxOutputTokens: 2600
-        }
-      })
-    }
-  );
+async function callGemini(apiKey, parts) {
+  const candidates = getModelCandidates();
+  let lastError;
 
-  const raw = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    const error = new Error(
-      raw?.error?.message || `Gemini API HTTP ${response.status}`
+  for (const model of candidates) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts }],
+          generationConfig: {
+            temperature: 0.1,
+            topP: 0.8,
+            maxOutputTokens: 2600
+          }
+        })
+      }
     );
-    error.status = response.status;
-    throw error;
+
+    const raw = await response.json().catch(() => ({}));
+
+    if (response.ok) {
+      const text = extractText(raw);
+      if (!text) throw new Error("Gemini AI가 빈 응답을 반환했습니다.");
+      return { text, model };
+    }
+
+    const message = raw?.error?.message || `Gemini API HTTP ${response.status}`;
+    lastError = new Error(message);
+    lastError.status = response.status;
+
+    if (!isModelNameError(response.status, message)) {
+      throw lastError;
+    }
   }
 
-  const text = extractText(raw);
-  if (!text) throw new Error("Gemini AI가 빈 응답을 반환했습니다.");
-  return text;
+  throw lastError || new Error("사용 가능한 분석 모델을 찾지 못했습니다.");
 }
 
 export default async function handler(req, res) {
@@ -218,18 +252,19 @@ ${String(educationUse || "안전교육")}
   });
 
   try {
-    let text = await callGemma(apiKey, parts);
+    let result = await callGemini(apiKey, parts);
+    let text = result.text;
 
     try {
       const data = parseMarkedResponse(text);
       return res.status(200).json({
         ...data,
-        model: ANALYSIS_MODEL,
+        model: result.model,
         parseMode: "markers"
       });
     } catch (firstError) {
       // 한 번만 형식 교정 요청. 내용 재분석은 하지 않는다.
-      const repairText = await callGemma(apiKey, [{
+      const repairResult = await callGemini(apiKey, [{
         text: `
 아래 응답의 내용은 변경하지 말고 표식 형식만 정확하게 고쳐라.
 JSON과 코드블록은 절대 사용하지 마라.
@@ -239,11 +274,12 @@ JSON과 코드블록은 절대 사용하지 마라.
 ${String(text).slice(0, 14000)}
 `
       }]);
+      const repairText = repairResult.text;
 
       const repaired = parseMarkedResponse(repairText);
       return res.status(200).json({
         ...repaired,
-        model: ANALYSIS_MODEL,
+        model: result.model,
         parseMode: "markers-repaired"
       });
     }
