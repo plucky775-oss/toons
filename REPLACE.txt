@@ -1,7 +1,2 @@
-Vercel 환경변수:
-GEMINI_API_KEY=기존 API 키
-ANALYSIS_MODEL=gemini-3.1-flash-lite
-IMAGE_MODEL=gemini-3.1-flash-lite-image
-
-기존 GEMMA_MODEL은 삭제 가능합니다.
-파일을 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
+버튼 문구를 'AI 안전사고 분석'으로 변경했습니다.
+index.html과 app.js를 기존 프로젝트에 덮어쓴 뒤 재배포하세요.

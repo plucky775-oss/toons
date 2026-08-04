@@ -221,7 +221,7 @@ $("#analyzeBtn").addEventListener("click",async ()=>{
     return;
   }
   $("#analyzeBtn").disabled = true;
-  $("#status").textContent = "Gemini AI가 사고자료를 분석하고 있습니다…";
+  $("#status").textContent = "AI가 안전사고 자료를 분석하고 있습니다…";
   try{
     analysisData = await postJson("/api/analyze-accident",{
       files:sourceFilesData.map(({name,mimeType,data,kind},index)=>({
