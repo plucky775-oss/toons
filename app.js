@@ -221,7 +221,7 @@ $("#generateBtn").addEventListener("click", async () => {
         }));
         $("#status").textContent = `완성했습니다. 대본: ${data.model || "Gemma 4"} · 그림: ${imageResult.model || "Google AI"}`;
       }catch(error){
-        $("#status").textContent = `이미지 생성 실패: ${error.message} · 무료 SVG 그림으로 완성했습니다.`;
+        $("#status").textContent = `Imagen 4 실패: ${error.message} · 무료 SVG 그림으로 완성했습니다.`;
       }
     }
 
