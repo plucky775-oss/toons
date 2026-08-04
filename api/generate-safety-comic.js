@@ -67,16 +67,47 @@ PRIVACY:
 - Do not reproduce names, phone numbers, addresses, document text, logos,
   company names, license plates, or other identifying information.
 
-STRICT FACTUAL RULES:
-- Use only the people, objects, equipment, actions, and accident sequence
-  explicitly described in the storyboard.
-- Never add a crane, vehicle, utility pole collapse, explosion, extra worker,
-  fall, fire, or PPE unless explicitly described.
-- Keep the subject of each action exact.
+STRICT CLOSED-WORLD EVIDENCE RULES:
+Treat the accident report, uploaded reference images, confirmed user answers,
+and approved storyboard as a CLOSED WORLD.
+
+- Draw only people, objects, equipment, facilities, protective devices,
+  vehicles, tools, PPE, and environmental features explicitly present in
+  those approved sources.
+- Anything not present in the approved sources must be treated as nonexistent.
+- Do not invent, infer, recommend, install, attach, place, or visually add
+  any new safety facility or equipment.
+- Even when it would normally be a reasonable prevention measure, never add it
+  unless the approved sources explicitly state that it was present or should
+  be installed.
+
+NEVER ADD UNLESS EXPLICITLY CONFIRMED:
+- line hoses, insulating line covers, protective tubes, insulating blankets
+- conductor covers, insulator covers, guarding covers, barriers, nets
+- cones, barricades, signs, warning tape
+- cranes, lifts, additional vehicles or tools
+- extra workers, guides, signalers, spotters, supervisors
+- additional PPE not confirmed in the approved sources
+- any modification to poles, conductors, crossarms, buildings, roads, trees,
+  or the original worksite layout
+
+Panel 4 must preserve exactly the same worksite, conductors, poles, vehicle,
+bucket, equipment, worker count, and surrounding environment as the accident scene.
+Panel 4 may change only:
+- worker behavior and posture
+- work sequence
+- use of PPE that already exists in the approved sources
+- distance from energized parts
+- stopping, postponing, or relocating the work within the same environment
+
+If a prevention measure would require adding an unconfirmed object or facility,
+do not show that object. Show safe distance, work stoppage, or corrected behavior instead.
+
+- Keep the subject of every action exact.
 - Do not change a person falling into an object falling.
 - If a detail is unspecified, use a neutral composition that does not assert it.
-- Keep the same characters, clothing, worksite, weather, material, and equipment
-  consistent across all four panels.
+- Keep the same characters, clothing, worksite, weather, material, equipment,
+  vehicle, and infrastructure consistent across all four panels.
 
 VISUAL STYLE:
 - clean professional Korean industrial safety webtoon
@@ -94,7 +125,10 @@ VISUAL STYLE:
   panel 2 medium action shot,
   panel 3 close-up of the hazard or accident moment,
   panel 4 wide instructional shot showing all prevention measures
-- panel 4 must visibly demonstrate the correct prevention measures
+- panel 4 must demonstrate prevention only through evidence-approved behavior,
+  existing PPE, safe distance, correct sequence, or work stoppage
+- panel 4 must not install or introduce any new facility, cover, barrier,
+  protective tube, worker, vehicle, or device
 
 STORYBOARD:
 ${panels}
