@@ -1,2 +1,2 @@
-확인 질문 제거 및 컷 번호 선택형 그림 수정 기능입니다.
-압축 안의 파일을 모두 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
+첫 화면 보조문구와 모델명 배지를 제거하고 업로드 칸을 작게 줄인 파일입니다.
+index.html과 styles.css를 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
