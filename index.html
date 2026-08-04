@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#111827" />
-  <title>이슈툰 — 무료 AI 4컷 만화</title>
+  <meta name="theme-color" content="#0f172a" />
+  <title>AI 안전사고 교육자료 생성기</title>
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
@@ -12,100 +12,169 @@
   <main class="app-shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">FREE 4-CUT COMIC MAKER</p>
-        <h1>이슈를 넣으면<br><span>4컷 만화</span>가 됩니다</h1>
-        <p class="sub">그림 API 없이 SVG 캐릭터를 조합해 무료로 만듭니다.</p>
+        <p class="eyebrow">AI SAFETY LEARNING STUDIO</p>
+        <h1>안전사고 자료를<br><span>교육 콘텐츠</span>로</h1>
+        <p class="sub">보고서와 사고사진을 분석해 4컷 만화, 사고 원인, 예방 포인트를 만듭니다.</p>
       </div>
-      <div class="badge">설치형 PWA · PNG 저장</div>
+      <div class="badge">Gemma 4 + Nano Banana 2 Lite</div>
     </header>
 
-    <section class="panel controls">
-      <label>
-        기사 링크 또는 사회적 이슈
-        <textarea id="issue" maxlength="500" placeholder="기사 URL을 붙여넣거나 사회적 이슈를 직접 입력하세요.&#10;예: https://news.example.com/article/123"></textarea>
+    <nav class="steps" aria-label="생성 단계">
+      <span class="active" data-step="1">1 자료 업로드</span>
+      <span data-step="2">2 AI 분석</span>
+      <span data-step="3">3 사용자 확인</span>
+      <span data-step="4">4 교육자료 생성</span>
+    </nav>
+
+    <section id="uploadSection" class="panel">
+      <div class="section-title">
+        <div class="step-number">1</div>
+        <div>
+          <h2>사고자료 업로드</h2>
+          <p>사고보고서 사진·현장사진·PDF 중 하나를 올리고 필요한 설명을 추가하세요.</p>
+        </div>
+      </div>
+
+      <div class="upload-grid">
+        <label class="drop-zone" for="sourceFile">
+          <input id="sourceFile" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" />
+          <strong>사진 또는 PDF 선택</strong>
+          <span>JPG · PNG · WEBP · PDF / 최대 4MB</span>
+          <img id="previewImage" class="hidden" alt="업로드 미리보기" />
+          <div id="fileName" class="file-name">선택된 파일 없음</div>
+        </label>
+
+        <div class="input-stack">
+          <label>
+            사고 개요 또는 보충 설명
+            <textarea id="extraContext" maxlength="2000" placeholder="예: 2층 옥상에서 6m 장재를 사람이 운반하던 중 특고압선에 접촉하여 감전 후 사람이 넘어짐"></textarea>
+          </label>
+          <label>
+            자료 용도
+            <select id="educationUse">
+              <option>TBM 교육</option>
+              <option>현장 안전교육</option>
+              <option>사고사례 전파</option>
+              <option>관리자 교육</option>
+            </select>
+          </label>
+          <label>
+            부상 표현
+            <select id="injuryLevel">
+              <option value="mild">교육용으로 약하게</option>
+              <option value="omit">사고 순간 생략</option>
+              <option value="moderate">비유혈·비고어 범위에서 표현</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <button id="analyzeBtn" class="primary">Gemma 4로 사고 분석</button>
+      <p id="status" aria-live="polite"></p>
+    </section>
+
+    <section id="analysisSection" class="panel hidden">
+      <div class="section-title">
+        <div class="step-number">2</div>
+        <div>
+          <h2>AI 분석 결과</h2>
+          <p>보고서에 확인된 사실과 만화 제작 전에 확인할 내용을 구분했습니다.</p>
+        </div>
+      </div>
+
+      <div class="analysis-grid">
+        <article class="analysis-card">
+          <h3>사고 개요</h3>
+          <p id="accidentSummary"></p>
+        </article>
+        <article class="analysis-card">
+          <h3>사고 진행 순서</h3>
+          <ol id="sequenceList"></ol>
+        </article>
+        <article class="analysis-card confirmed">
+          <h3>확인된 사실</h3>
+          <ul id="confirmedFacts"></ul>
+        </article>
+        <article class="analysis-card causes">
+          <h3>사고 원인 후보</h3>
+          <div id="causePreview" class="chip-list"></div>
+        </article>
+      </div>
+
+      <div id="questionsBox" class="questions-box">
+        <h3>확인이 필요한 내용</h3>
+        <p>자료에 명확히 적혀 있지 않은 사항만 답해주세요.</p>
+        <div id="questionsList"></div>
+      </div>
+
+      <div class="actions">
+        <button id="backToUploadBtn">자료 다시 선택</button>
+        <button id="confirmAnalysisBtn" class="primary small">확인하고 스토리보드 생성</button>
+      </div>
+    </section>
+
+    <section id="storyboardSection" class="panel hidden">
+      <div class="section-title">
+        <div class="step-number">3</div>
+        <div>
+          <h2>4컷 스토리보드 확인</h2>
+          <p>그림을 생성하기 전에 장면을 확인하고 필요한 부분을 수정하세요.</p>
+        </div>
+      </div>
+
+      <div id="storyboardCards" class="storyboard-grid"></div>
+
+      <label class="wide-label">
+        추가 수정 지시
+        <textarea id="revisionNote" maxlength="1000" placeholder="예: 크레인은 사용하지 않았고 사람이 장재를 들고 이동한 장면으로 표현"></textarea>
       </label>
 
-      <div class="article-tools">
-        <button id="analyzeLinkBtn" type="button">기사 링크 읽기</button>
-        <div>
-          <strong id="articleTitle">기사 미분석</strong>
-          <small id="articleSummary">링크를 붙이면 제목과 핵심 내용을 먼저 확인합니다.</small>
-        </div>
+      <div class="actions">
+        <button id="regenerateStoryboardBtn">대본 다시 만들기</button>
+        <button id="generateImageBtn" class="primary small">Nano Banana로 교육자료 생성</button>
       </div>
-
-      <div class="grid">
-        <label>분위기
-          <select id="tone">
-            <option value="공감형">공감형</option>
-            <option value="유머형">유머형</option>
-            <option value="풍자형">풍자형</option>
-            <option value="정보형">정보형</option>
-          </select>
-        </label>
-        <label>독자층
-          <select id="audience">
-            <option>일반 성인</option>
-            <option>직장인</option>
-            <option>청소년</option>
-            <option>어린이</option>
-          </select>
-        </label>
-        <label>결말
-          <select id="ending">
-            <option>해결 메시지</option>
-            <option>생각할 질문</option>
-            <option>반전</option>
-            <option>공익 캠페인</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="mode-options">
-        <div class="mode-row">
-          <label class="switch-label">
-            <input id="aiMode" type="checkbox" checked />
-            <span>Gemma 4 대본 사용</span>
-          </label>
-          <small>실패 시 오프라인 대본으로 자동 전환됩니다.</small>
-        </div>
-        <div class="mode-row">
-          <label class="switch-label">
-            <input id="imageAiMode" type="checkbox" checked />
-            <span>Google AI Studio 이미지 생성</span>
-          </label>
-          <small>Imagen 4 Generate · 실패 시 무료 SVG 그림 사용</small>
-        </div>
-      </div>
-
-      <button id="generateBtn" class="primary">4컷 만화 만들기</button>
-      <p id="status" aria-live="polite"></p>
+      <p id="imageStatus" aria-live="polite"></p>
     </section>
 
     <section id="resultSection" class="result hidden">
       <div class="result-head">
         <div>
-          <p class="eyebrow">YOUR COMIC</p>
-          <h2 id="comicTitle">오늘의 이슈툰</h2>
+          <p class="eyebrow">SAFETY EDUCATION MATERIAL</p>
+          <h2 id="materialTitle">안전사고 교육자료</h2>
         </div>
         <div class="actions">
           <button id="downloadBtn">PNG 저장</button>
-          <button id="resetBtn">다시 만들기</button>
+          <button id="restartBtn">새 자료 만들기</button>
         </div>
       </div>
 
-      <div id="comic" class="comic" aria-label="생성된 4컷 만화"></div>
-      <p id="finalMessage" class="final-message"></p>
+      <div id="exportArea" class="export-area">
+        <div class="summary-banner">
+          <strong id="resultSummary"></strong>
+          <span id="oneLineLesson"></span>
+        </div>
+
+        <div class="comic-wrap">
+          <img id="comicImage" alt="AI가 생성한 안전사고 4컷 만화" />
+          <div id="comicFallback" class="comic-fallback hidden"></div>
+        </div>
+
+        <section class="storyboard-captions">
+          <h3>컷별 교육 내용</h3>
+          <div id="resultStoryboard" class="storyboard-grid compact"></div>
+        </section>
+
+        <section class="cause-learning">
+          <h3>이 사고의 주요 원인</h3>
+          <p>원인을 누르면 왜 위험한지와 현장 적용 기준을 확인할 수 있습니다.</p>
+          <div id="causeButtons" class="cause-buttons"></div>
+          <article id="causeDetail" class="cause-detail">
+            <p>위의 사고 원인을 선택하세요.</p>
+          </article>
+        </section>
+      </div>
     </section>
   </main>
-
-  <template id="panelTemplate">
-    <article class="comic-panel">
-      <div class="panel-number"></div>
-      <div class="scene"></div>
-      <div class="bubble"></div>
-      <div class="caption"></div>
-    </article>
-  </template>
 
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="/app.js"></script>

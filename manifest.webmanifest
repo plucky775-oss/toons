@@ -1,9 +1,9 @@
 {
-  "name": "이슈툰 - 무료 AI 4컷 만화",
-  "short_name": "이슈툰",
+  "name": "AI 안전사고 교육자료 생성기",
+  "short_name": "사고교육 AI",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f7f8fb",
-  "theme_color": "#111827",
+  "background_color": "#f4f7fb",
+  "theme_color": "#0f172a",
   "icons": []
 }

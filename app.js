@@ -1,250 +1,251 @@
 const $ = (s) => document.querySelector(s);
-let articleContext = null;
+let sourceData = null;
+let analysisData = null;
+let educationData = null;
 
-function looksLikeUrl(value=""){
-  try{
-    const url = new URL(value.trim());
-    return url.protocol === "https:" || url.protocol === "http:";
-  }catch{
-    return false;
-  }
+function setStep(step){
+  document.querySelectorAll(".steps span").forEach(el=>{
+    el.classList.toggle("active", Number(el.dataset.step) <= step);
+  });
 }
 
-const palettes = [
-  { shirt:"#5b8def", hair:"#2b2118", bg:"#dff3ff" },
-  { shirt:"#ff8a65", hair:"#35271d", bg:"#fff0d7" },
-  { shirt:"#66bb6a", hair:"#252525", bg:"#e8f6e8" },
-  { shirt:"#ab7bea", hair:"#4a3022", bg:"#f1e9ff" }
-];
+function show(section){
+  section.classList.remove("hidden");
+  section.scrollIntoView({behavior:"smooth",block:"start"});
+}
 
 function escapeHtml(text=""){
-  return String(text).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+  return String(text).replace(/[&<>"']/g,ch=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[ch]));
 }
 
-function offlineScript(issue, tone, audience, ending){
-  const short = issue.length > 42 ? issue.slice(0, 42) + "…" : issue;
-  const toneLine = {
-    "공감형":"나만 불편한 게 아니었구나.",
-    "유머형":"편해진 건 알림창뿐이었다.",
-    "풍자형":"규칙은 있는데, 퇴근은 없었다.",
-    "정보형":"작은 관행도 반복되면 문화가 됩니다."
-  }[tone] || "문제를 함께 바라봅니다.";
+function fileToData(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>resolve(String(reader.result).split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
-  const endLine = {
-    "해결 메시지":"서로의 경계를 존중하는 작은 약속부터 시작해요.",
-    "생각할 질문":"우리의 편리함은 누군가의 시간을 빼앗고 있진 않을까요?",
-    "반전":"알림을 끈 순간, 진짜 대화가 시작됐습니다.",
-    "공익 캠페인":"멈춰야 바뀝니다. 오늘부터 한 가지를 실천해요."
-  }[ending];
-
-  return {
-    title: `${short} — 오늘의 이슈툰`,
-    finalMessage: endLine,
-    panels: [
-      { dialogue:"요즘 이 문제가 자꾸 눈에 띄네.", caption:`상황: ${short}`, mood:"notice", place:"street" },
-      { dialogue:"다들 익숙해서 그냥 넘기는 걸까?", caption:"불편함이 반복되면 일상이 됩니다.", mood:"worry", place:"office" },
-      { dialogue:toneLine, caption:`${audience}의 시선으로 다시 보기`, mood:"realize", place:"meeting" },
-      { dialogue:endLine, caption:"변화는 작은 선택에서 시작됩니다.", mood:"hope", place:"park" }
-    ]
+$("#sourceFile").addEventListener("change", async (event)=>{
+  const file = event.target.files?.[0];
+  if(!file) return;
+  if(file.size > 4 * 1024 * 1024){
+    $("#status").textContent = "파일은 4MB 이하로 올려주세요.";
+    event.target.value = "";
+    return;
+  }
+  sourceData = {
+    name:file.name,
+    mimeType:file.type || "application/octet-stream",
+    data:await fileToData(file)
   };
-}
+  $("#fileName").textContent = `${file.name} · ${(file.size/1024/1024).toFixed(2)}MB`;
+  if(file.type.startsWith("image/")){
+    $("#previewImage").src = URL.createObjectURL(file);
+    $("#previewImage").classList.remove("hidden");
+  }else{
+    $("#previewImage").classList.add("hidden");
+  }
+});
 
-async function aiScript(payload){
-  const response = await fetch("/api/generate", {
+async function postJson(url,payload){
+  const response = await fetch(url,{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify(payload)
   });
-  if(!response.ok) throw new Error("AI 요청 실패");
-  return response.json();
+  const data = await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data.error || `요청 실패 (${response.status})`);
+  return data;
 }
 
-async function analyzeArticle(url){
-  const response = await fetch("/api/article",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({url})
-  });
-  const result = await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(result?.error || "기사 읽기 실패");
-  return result;
+function renderAnalysis(data){
+  $("#accidentSummary").textContent = data.summary || "분석된 사고 개요가 없습니다.";
+  $("#sequenceList").innerHTML = (data.sequence || []).map(v=>`<li>${escapeHtml(v)}</li>`).join("");
+  $("#confirmedFacts").innerHTML = (data.confirmedFacts || []).map(v=>`<li>${escapeHtml(v)}</li>`).join("");
+  $("#causePreview").innerHTML = (data.causeCandidates || []).map(v=>`<span class="chip">${escapeHtml(v.name || v)}</span>`).join("");
+
+  const questions = data.questions || [];
+  $("#questionsList").innerHTML = questions.length ? questions.map((q,index)=>{
+    const options = Array.isArray(q.options) && q.options.length
+      ? `<div class="option-row">${q.options.map((option,optIndex)=>`
+          <label><input type="radio" name="question_${index}" value="${escapeHtml(option)}" ${optIndex===0?"checked":""}>${escapeHtml(option)}</label>
+        `).join("")}</div>`
+      : `<textarea class="question-text" data-question-index="${index}" placeholder="확인 내용을 입력하세요"></textarea>`;
+    return `<div class="question-item" data-id="${escapeHtml(q.id || String(index))}">
+      <strong>${index+1}. ${escapeHtml(q.question)}</strong>${options}
+    </div>`;
+  }).join("") : `<p>추가로 확인할 내용이 없습니다. 바로 스토리보드를 만들 수 있습니다.</p>`;
 }
 
-async function generatePanelImages(script, payload){
-  const response = await fetch("/api/generate-images",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      title:script.title,
-      issue:payload.issue,
-      articleTitle:payload.articleTitle,
-      tone:payload.tone,
-      panels:script.panels
-    })
-  });
-  const result = await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(result?.error || `이미지 생성 실패 (${response.status})`);
-  return result;
-}
-
-function characterSvg(index, mood, place){
-  const p = palettes[index % palettes.length];
-  const mouths = {
-    notice:'M165 205 Q180 215 195 205',
-    worry:'M165 216 Q180 202 195 216',
-    realize:'M163 207 Q180 224 197 207',
-    hope:'M160 202 Q180 224 200 202'
-  };
-  const brows = mood === "worry"
-    ? '<path d="M145 172 l24 -7 M191 165 l24 7" stroke="#222" stroke-width="5" stroke-linecap="round"/>'
-    : '<path d="M145 168 h24 M191 168 h24" stroke="#222" stroke-width="5" stroke-linecap="round"/>';
-
-  const props = {
-    street:'<rect x="0" y="285" width="360" height="115" fill="#d8dee9"/><rect x="35" y="240" width="70" height="80" rx="8" fill="#fff"/><circle cx="70" cy="275" r="15" fill="#ffcf33"/>',
-    office:'<rect x="0" y="282" width="360" height="118" fill="#d9c7ae"/><rect x="235" y="240" width="95" height="70" rx="5" fill="#fff"/><rect x="246" y="251" width="73" height="42" fill="#bfe4ff"/>',
-    meeting:'<rect x="0" y="285" width="360" height="115" fill="#e2d5c4"/><ellipse cx="180" cy="315" rx="145" ry="34" fill="#a06f45"/>',
-    park:'<rect x="0" y="285" width="360" height="115" fill="#b8df9c"/><circle cx="60" cy="250" r="42" fill="#70b86c"/><rect x="55" y="255" width="10" height="55" fill="#75523a"/>'
-  }[place];
-
-  return `<svg viewBox="0 0 360 400" xmlns="http://www.w3.org/2000/svg">
-    <rect width="360" height="400" fill="${p.bg}"/>
-    <circle cx="300" cy="70" r="36" fill="#fff7b2" opacity=".9"/>
-    ${props}
-    <ellipse cx="180" cy="370" rx="70" ry="14" fill="#000" opacity=".12"/>
-    <path d="M110 365 Q115 260 180 255 Q245 260 250 365" fill="${p.shirt}" stroke="#222" stroke-width="6"/>
-    <circle cx="180" cy="180" r="68" fill="#ffd5b6" stroke="#222" stroke-width="6"/>
-    <path d="M118 168 Q118 102 180 100 Q244 103 243 168 Q215 135 175 140 Q145 143 118 168" fill="${p.hair}" stroke="#222" stroke-width="6"/>
-    ${brows}
-    <circle cx="155" cy="185" r="6" fill="#222"/><circle cx="205" cy="185" r="6" fill="#222"/>
-    <path d="${mouths[mood] || mouths.notice}" fill="none" stroke="#222" stroke-width="6" stroke-linecap="round"/>
-    <path d="M128 286 Q85 300 78 340 M232 286 Q276 300 282 340" fill="none" stroke="#222" stroke-width="14" stroke-linecap="round"/>
-    <circle cx="77" cy="344" r="12" fill="#ffd5b6" stroke="#222" stroke-width="4"/>
-    <circle cx="283" cy="344" r="12" fill="#ffd5b6" stroke="#222" stroke-width="4"/>
-  </svg>`;
-}
-
-function renderComic(data){
-  $("#comicTitle").textContent = data.title || "오늘의 이슈툰";
-  $("#finalMessage").textContent = data.finalMessage || "";
-  const comic = $("#comic");
-  comic.innerHTML = "";
-  (data.panels || []).slice(0,4).forEach((panel, i) => {
-    const node = $("#panelTemplate").content.cloneNode(true);
-    node.querySelector(".panel-number").textContent = i + 1;
-    const scene = node.querySelector(".scene");
-    if(panel.imageDataUrl){
-      scene.innerHTML = `<img src="${panel.imageDataUrl}" alt="${escapeHtml(panel.caption || `${i+1}컷 이미지`)}"><span class="image-credit">Google AI</span>`;
-    }else{
-      scene.innerHTML = characterSvg(i, panel.mood, panel.place);
-    }
-    node.querySelector(".bubble").textContent = panel.dialogue || "";
-    node.querySelector(".caption").textContent = panel.caption || "";
-    comic.appendChild(node);
-  });
-  $("#resultSection").classList.remove("hidden");
-  $("#resultSection").scrollIntoView({behavior:"smooth", block:"start"});
-}
-
-
-$("#analyzeLinkBtn").addEventListener("click", async ()=>{
-  const value = $("#issue").value.trim();
-  if(!looksLikeUrl(value)){
-    $("#status").textContent = "기사 URL을 입력해주세요.";
+$("#analyzeBtn").addEventListener("click",async ()=>{
+  if(!sourceData && !$("#extraContext").value.trim()){
+    $("#status").textContent = "사고자료 파일이나 사고 개요를 입력해주세요.";
     return;
   }
-  $("#analyzeLinkBtn").disabled = true;
-  $("#status").textContent = "기사 내용을 읽고 있습니다…";
+  $("#analyzeBtn").disabled = true;
+  $("#status").textContent = "Gemma 4가 사고자료를 분석하고 있습니다…";
   try{
-    articleContext = await analyzeArticle(value);
-    $("#articleTitle").textContent = articleContext.title || "제목 확인 완료";
-    $("#articleSummary").textContent = articleContext.summary || "기사 핵심 내용 확인 완료";
-    $("#status").textContent = "기사 분석이 완료됐습니다.";
+    analysisData = await postJson("/api/analyze-accident",{
+      file:sourceData,
+      extraContext:$("#extraContext").value.trim(),
+      educationUse:$("#educationUse").value
+    });
+    renderAnalysis(analysisData);
+    $("#analysisSection").classList.remove("hidden");
+    setStep(2);
+    show($("#analysisSection"));
+    $("#status").textContent = `분석 완료 · ${analysisData.model || "Gemma 4"}`;
   }catch(error){
-    articleContext = null;
-    $("#articleTitle").textContent = "기사 읽기 실패";
-    $("#articleSummary").textContent = error.message;
-    $("#status").textContent = "기사 링크를 읽지 못했습니다. 직접 이슈를 입력해도 됩니다.";
+    $("#status").textContent = `분석 실패: ${error.message}`;
   }finally{
-    $("#analyzeLinkBtn").disabled = false;
+    $("#analyzeBtn").disabled = false;
   }
 });
 
-$("#generateBtn").addEventListener("click", async () => {
-  const rawInput = $("#issue").value.trim();
-  if(!rawInput){ $("#status").textContent = "기사 링크나 사회적 이슈를 입력해주세요."; return; }
-
-  if(looksLikeUrl(rawInput) && (!articleContext || articleContext.url !== rawInput)){
-    $("#status").textContent = "기사 링크를 먼저 읽고 있습니다…";
-    try{
-      articleContext = await analyzeArticle(rawInput);
-      $("#articleTitle").textContent = articleContext.title || "제목 확인 완료";
-      $("#articleSummary").textContent = articleContext.summary || "기사 분석 완료";
-    }catch(error){
-      articleContext = null;
-    }
-  }
-
-  const payload = {
-    issue: articleContext?.summary || rawInput,
-    sourceUrl: articleContext?.url || (looksLikeUrl(rawInput) ? rawInput : ""),
-    articleTitle: articleContext?.title || "",
-    articleText: articleContext?.text || "",
-    tone:$("#tone").value,
-    audience:$("#audience").value,
-    ending:$("#ending").value
-  };
-  $("#generateBtn").disabled = true;
-  $("#status").textContent = "4컷 대본을 구성하고 있습니다…";
-  try{
-    let data;
-    if($("#aiMode").checked){
-      try{
-        data = await aiScript(payload);
-        const usedModel = data?.model || "gemma-4";
-        $("#status").textContent = `Gemma 4 대본으로 완성했습니다. (${usedModel})`;
-      }catch(e){
-        data = offlineScript(payload.issue,payload.tone,payload.audience,payload.ending);
-        $("#status").textContent = "Gemma 4 연결 실패로 오프라인 모드에서 완성했습니다.";
-      }
-    }else{
-      data = offlineScript(payload.issue,payload.tone,payload.audience,payload.ending);
-      $("#status").textContent = "오프라인 모드로 완성했습니다.";
-    }
-
-    if($("#imageAiMode").checked){
-      $("#status").textContent = "Google AI Studio에서 4컷 그림을 생성하고 있습니다…";
-      try{
-        const imageResult = await generatePanelImages(data,payload);
-        data.panels = data.panels.map((panel,index)=>({
-          ...panel,
-          imageDataUrl:imageResult.images?.[index] || null
-        }));
-        $("#status").textContent = `완성했습니다. 대본: ${data.model || "Gemma 4"} · 그림: ${imageResult.model || "Google AI"}`;
-      }catch(error){
-        $("#status").textContent = `Imagen 4 실패: ${error.message} · 무료 SVG 그림으로 완성했습니다.`;
-      }
-    }
-
-    renderComic(data);
-  }finally{
-    $("#generateBtn").disabled = false;
-  }
-});
-
-$("#downloadBtn").addEventListener("click", async () => {
-  const target = $("#resultSection");
-  const canvas = await html2canvas(target,{scale:2,backgroundColor:"#f7f8fb"});
-  const a = document.createElement("a");
-  a.download = `이슈툰_${new Date().toISOString().slice(0,10)}.png`;
-  a.href = canvas.toDataURL("image/png");
-  a.click();
-});
-
-$("#resetBtn").addEventListener("click", () => {
-  $("#issue").focus();
-  window.scrollTo({top:0,behavior:"smooth"});
-});
-
-if("serviceWorker" in navigator){
-  window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js"));
+function collectAnswers(){
+  return (analysisData?.questions || []).map((q,index)=>{
+    const radio = document.querySelector(`input[name="question_${index}"]:checked`);
+    const text = document.querySelector(`textarea[data-question-index="${index}"]`);
+    return {
+      id:q.id || String(index),
+      question:q.question,
+      answer:radio?.value || text?.value?.trim() || "사용자 확인 없음"
+    };
+  });
 }
+
+function renderStoryboard(data){
+  $("#storyboardCards").innerHTML = (data.storyboard || []).map((panel,index)=>`
+    <article class="story-card">
+      <span class="cut">${index+1}</span>
+      <h4>${escapeHtml(panel.title || `${index+1}컷`)}</h4>
+      <textarea data-panel-index="${index}">${escapeHtml(panel.scene || "")}</textarea>
+      <p><strong>대사:</strong> ${escapeHtml(panel.dialogue || "")}</p>
+      <p><strong>교육 포인트:</strong> ${escapeHtml(panel.educationPoint || "")}</p>
+    </article>
+  `).join("");
+}
+
+async function createStoryboard(){
+  $("#confirmAnalysisBtn").disabled = true;
+  $("#confirmAnalysisBtn").textContent = "스토리보드 생성 중…";
+  try{
+    educationData = await postJson("/api/create-education",{
+      analysis:analysisData,
+      answers:collectAnswers(),
+      educationUse:$("#educationUse").value,
+      injuryLevel:$("#injuryLevel").value,
+      revisionNote:$("#revisionNote").value.trim()
+    });
+    renderStoryboard(educationData);
+    $("#storyboardSection").classList.remove("hidden");
+    setStep(3);
+    show($("#storyboardSection"));
+  }catch(error){
+    alert(`스토리보드 생성 실패: ${error.message}`);
+  }finally{
+    $("#confirmAnalysisBtn").disabled = false;
+    $("#confirmAnalysisBtn").textContent = "확인하고 스토리보드 생성";
+  }
+}
+
+$("#confirmAnalysisBtn").addEventListener("click",createStoryboard);
+$("#regenerateStoryboardBtn").addEventListener("click",createStoryboard);
+$("#backToUploadBtn").addEventListener("click",()=>show($("#uploadSection")));
+
+function collectEditedStoryboard(){
+  return (educationData.storyboard || []).map((panel,index)=>({
+    ...panel,
+    scene:document.querySelector(`textarea[data-panel-index="${index}"]`)?.value.trim() || panel.scene
+  }));
+}
+
+function renderResult(data,imageResult){
+  $("#materialTitle").textContent = data.title || "안전사고 교육자료";
+  $("#resultSummary").textContent = data.summary || analysisData.summary;
+  $("#oneLineLesson").textContent = data.oneLineLesson || "";
+  const image = imageResult?.imageDataUrl;
+  if(image){
+    $("#comicImage").src = image;
+    $("#comicImage").classList.remove("hidden");
+    $("#comicFallback").classList.add("hidden");
+  }else{
+    $("#comicImage").classList.add("hidden");
+    $("#comicFallback").classList.remove("hidden");
+    $("#comicFallback").innerHTML = "<strong>이미지 생성에 실패했습니다.</strong><p>스토리보드와 원인 교육자료는 정상 생성되었습니다.</p>";
+  }
+
+  $("#resultStoryboard").innerHTML = data.storyboard.map((panel,index)=>`
+    <article class="story-card">
+      <span class="cut">${index+1}</span>
+      <h4>${escapeHtml(panel.title)}</h4>
+      <p>${escapeHtml(panel.scene)}</p>
+      <p><strong>${escapeHtml(panel.dialogue || "")}</strong></p>
+      <p>${escapeHtml(panel.educationPoint || "")}</p>
+    </article>
+  `).join("");
+
+  const causes = data.causes || [];
+  $("#causeButtons").innerHTML = causes.map((cause,index)=>`
+    <button type="button" data-cause-index="${index}">${escapeHtml(cause.name)}</button>
+  `).join("");
+
+  $("#causeButtons").querySelectorAll("button").forEach(button=>{
+    button.addEventListener("click",()=>{
+      $("#causeButtons").querySelectorAll("button").forEach(b=>b.classList.remove("active"));
+      button.classList.add("active");
+      const cause = causes[Number(button.dataset.causeIndex)];
+      $("#causeDetail").innerHTML = `
+        <h4>${escapeHtml(cause.name)}</h4>
+        <dl>
+          <dt>왜 위험한가</dt><dd>${escapeHtml(cause.whyDangerous)}</dd>
+          <dt>현장 적용 기준</dt><dd>${escapeHtml(cause.fieldStandard)}</dd>
+          <dt>예방 행동</dt><dd>${escapeHtml((cause.preventiveActions || []).join(" · "))}</dd>
+          <dt>TBM 핵심문구</dt><dd><strong>${escapeHtml(cause.tbmMessage)}</strong></dd>
+          <dt>관련 기준 검색어</dt><dd>${escapeHtml((cause.standardKeywords || []).join(", "))}</dd>
+        </dl>
+        <div class="notice">법령 조문 번호와 사내 기준은 최신 원문을 확인한 뒤 확정하세요.</div>
+      `;
+    });
+  });
+  $("#causeButtons button")?.click();
+
+  $("#resultSection").classList.remove("hidden");
+  setStep(4);
+  show($("#resultSection"));
+}
+
+$("#generateImageBtn").addEventListener("click",async ()=>{
+  const storyboard = collectEditedStoryboard();
+  educationData.storyboard = storyboard;
+  $("#generateImageBtn").disabled = true;
+  $("#imageStatus").textContent = "Nano Banana 2 Lite가 4컷 만화를 생성하고 있습니다…";
+  try{
+    const imageResult = await postJson("/api/generate-safety-comic",{
+      sourceFile:sourceData?.mimeType?.startsWith("image/") ? sourceData : null,
+      education:educationData,
+      injuryLevel:$("#injuryLevel").value
+    });
+    renderResult(educationData,imageResult);
+    $("#imageStatus").textContent = `완성 · ${imageResult.model || "Nano Banana 2 Lite"}`;
+  }catch(error){
+    $("#imageStatus").textContent = `그림 생성 실패: ${error.message}`;
+    renderResult(educationData,null);
+  }finally{
+    $("#generateImageBtn").disabled = false;
+  }
+});
+
+$("#downloadBtn").addEventListener("click",async ()=>{
+  const canvas = await html2canvas($("#exportArea"),{scale:2,backgroundColor:"#ffffff"});
+  const link = document.createElement("a");
+  link.download = `안전사고_교육자료_${new Date().toISOString().slice(0,10)}.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+});
+
+$("#restartBtn").addEventListener("click",()=>location.reload());
