@@ -2,6 +2,7 @@ const $ = (s) => document.querySelector(s);
 let sourceFilesData = [];
 let analysisData = null;
 let educationData = null;
+let currentComicImageDataUrl = null;
 const MAX_FILES = 8;
 const MAX_PDF_BYTES = 4 * 1024 * 1024;
 const MAX_IMAGE_SOURCE_BYTES = 12 * 1024 * 1024;
@@ -232,7 +233,7 @@ $("#analyzeBtn").addEventListener("click",async ()=>{
         order:index+1
       })),
       extraContext:$("#extraContext").value.trim(),
-      educationUse:$("#educationUse").value
+      educationUse:"안전사고 교육자료"
     });
     renderAnalysis(analysisData);
     $("#analysisSection").classList.remove("hidden");
@@ -277,8 +278,8 @@ async function createStoryboard(){
     educationData = await postJson("/api/create-education",{
       analysis:analysisData,
       answers:collectAnswers(),
-      educationUse:$("#educationUse").value,
-      injuryLevel:$("#injuryLevel").value,
+      educationUse:"안전사고 교육자료",
+      injuryLevel:"realistic",
       revisionNote:$("#revisionNote").value.trim()
     });
     renderStoryboard(educationData);
@@ -326,6 +327,7 @@ function renderResult(data,imageResult){
   renderComicOverlay(data.storyboard || []);
   const image = imageResult?.imageDataUrl;
   if(image){
+    currentComicImageDataUrl = image;
     $("#comicImage").src = image;
     $("#comicImage").classList.remove("hidden");
     $("#comicOverlay").classList.remove("hidden");
@@ -389,7 +391,7 @@ $("#generateImageBtn").addEventListener("click",async ()=>{
         .slice(0,6)
         .map(({name,mimeType,data},index)=>({name,mimeType,data,order:index+1})),
       education:educationData,
-      injuryLevel:$("#injuryLevel").value
+      injuryLevel:"realistic"
     });
     renderResult(educationData,imageResult);
     const verificationText = imageResult?.verification?.pass
@@ -494,5 +496,56 @@ async function savePngFile(){
 }
 
 $("#downloadBtn").addEventListener("click",savePngFile);
+
+
+async function reviseComicImage(){
+  const note = $("#imageRevisionNote")?.value.trim();
+  const button = $("#reviseImageBtn");
+  const status = $("#revisionStatus");
+
+  if(!note){
+    if(status) status.textContent = "수정할 내용을 입력해주세요.";
+    return;
+  }
+  if(!currentComicImageDataUrl){
+    if(status) status.textContent = "먼저 그림을 생성해주세요.";
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = "그림 수정 중…";
+  if(status) status.textContent = "기존 그림을 참고해 요청한 부분만 수정하고 있습니다.";
+
+  try{
+    const result = await postJson("/api/revise-safety-comic",{
+      currentImageDataUrl:currentComicImageDataUrl,
+      education:educationData,
+      revisionNote:note,
+      sourceImages:sourceFilesData
+        .filter(item=>item.kind==="image")
+        .slice(0,3)
+        .map(({name,mimeType,data},index)=>({name,mimeType,data,order:index+1}))
+    });
+
+    currentComicImageDataUrl = result.imageDataUrl;
+    $("#comicImage").src = result.imageDataUrl;
+    $("#comicImage").classList.remove("hidden");
+    $("#comicOverlay").classList.remove("hidden");
+    $("#comicFallback").classList.add("hidden");
+
+    if(status){
+      status.textContent = result?.verification?.pass
+        ? "그림 수정 및 자동검증을 완료했습니다."
+        : "그림은 수정됐지만 결과를 한 번 더 확인해주세요.";
+    }
+  }catch(error){
+    if(status) status.textContent = `그림 수정 실패: ${error.message}`;
+  }finally{
+    button.disabled = false;
+    button.textContent = "그림 수정하기";
+  }
+}
+
+$("#reviseImageBtn")?.addEventListener("click",reviseComicImage);
 
 $("#restartBtn").addEventListener("click",()=>location.reload());

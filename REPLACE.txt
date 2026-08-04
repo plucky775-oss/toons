@@ -1,2 +1,2 @@
-사실적 사고 표현, 생성 후 자동검증·1회 재생성, iPhone/iPad PNG 저장 수정본입니다.
-모든 파일을 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
+자료용도·부상표현 선택 제거, 사실적 비고어 고정, 그림 수정 기능 추가 파일입니다.
+압축 안의 파일을 모두 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
