@@ -304,17 +304,35 @@ function collectEditedStoryboard(){
   }));
 }
 
+
+function renderComicOverlay(storyboard){
+  const overlay = $("#comicOverlay");
+  if(!overlay) return;
+
+  overlay.innerHTML = (storyboard || []).slice(0,4).map((panel,index)=>`
+    <section class="overlay-panel">
+      <span class="cut-badge">${index+1}</span>
+      <div class="panel-title">${escapeHtml(panel.title || `${index+1}컷`)}</div>
+      ${panel.dialogue ? `<div class="speech-bubble">${escapeHtml(panel.dialogue)}</div>` : ""}
+      <div class="education-strip">${escapeHtml(panel.educationPoint || "")}</div>
+    </section>
+  `).join("");
+}
+
 function renderResult(data,imageResult){
   $("#materialTitle").textContent = data.title || "안전사고 교육자료";
   $("#resultSummary").textContent = data.summary || analysisData.summary;
   $("#oneLineLesson").textContent = data.oneLineLesson || "";
+  renderComicOverlay(data.storyboard || []);
   const image = imageResult?.imageDataUrl;
   if(image){
     $("#comicImage").src = image;
     $("#comicImage").classList.remove("hidden");
+    $("#comicOverlay").classList.remove("hidden");
     $("#comicFallback").classList.add("hidden");
   }else{
     $("#comicImage").classList.add("hidden");
+    $("#comicOverlay").classList.add("hidden");
     $("#comicFallback").classList.remove("hidden");
     $("#comicFallback").innerHTML = "<strong>이미지 생성에 실패했습니다.</strong><p>스토리보드와 원인 교육자료는 정상 생성되었습니다.</p>";
   }
