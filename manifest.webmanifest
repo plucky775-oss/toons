@@ -1,0 +1,9 @@
+{
+  "name": "이슈툰 - 무료 AI 4컷 만화",
+  "short_name": "이슈툰",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f8fb",
+  "theme_color": "#111827",
+  "icons": []
+}

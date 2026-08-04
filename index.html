@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#111827" />
+  <title>이슈툰 — 무료 AI 4컷 만화</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">FREE 4-CUT COMIC MAKER</p>
+        <h1>이슈를 넣으면<br><span>4컷 만화</span>가 됩니다</h1>
+        <p class="sub">그림 API 없이 SVG 캐릭터를 조합해 무료로 만듭니다.</p>
+      </div>
+      <div class="badge">설치형 PWA · PNG 저장</div>
+    </header>
+
+    <section class="panel controls">
+      <label>
+        사회적 이슈
+        <textarea id="issue" maxlength="180" placeholder="예: 직장 단톡방에서 퇴근 후에도 업무 지시가 계속되는 문제"></textarea>
+      </label>
+
+      <div class="grid">
+        <label>분위기
+          <select id="tone">
+            <option value="공감형">공감형</option>
+            <option value="유머형">유머형</option>
+            <option value="풍자형">풍자형</option>
+            <option value="정보형">정보형</option>
+          </select>
+        </label>
+        <label>독자층
+          <select id="audience">
+            <option>일반 성인</option>
+            <option>직장인</option>
+            <option>청소년</option>
+            <option>어린이</option>
+          </select>
+        </label>
+        <label>결말
+          <select id="ending">
+            <option>해결 메시지</option>
+            <option>생각할 질문</option>
+            <option>반전</option>
+            <option>공익 캠페인</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="mode-row">
+        <label class="switch-label">
+          <input id="aiMode" type="checkbox" checked />
+          <span>무료 AI 대본 사용</span>
+        </label>
+        <small>API 오류 시 자동으로 오프라인 대본으로 전환됩니다.</small>
+      </div>
+
+      <button id="generateBtn" class="primary">4컷 만화 만들기</button>
+      <p id="status" aria-live="polite"></p>
+    </section>
+
+    <section id="resultSection" class="result hidden">
+      <div class="result-head">
+        <div>
+          <p class="eyebrow">YOUR COMIC</p>
+          <h2 id="comicTitle">오늘의 이슈툰</h2>
+        </div>
+        <div class="actions">
+          <button id="downloadBtn">PNG 저장</button>
+          <button id="resetBtn">다시 만들기</button>
+        </div>
+      </div>
+
+      <div id="comic" class="comic" aria-label="생성된 4컷 만화"></div>
+      <p id="finalMessage" class="final-message"></p>
+    </section>
+  </main>
+
+  <template id="panelTemplate">
+    <article class="comic-panel">
+      <div class="panel-number"></div>
+      <div class="scene"></div>
+      <div class="bubble"></div>
+      <div class="caption"></div>
+    </article>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
