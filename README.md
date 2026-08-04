@@ -45,3 +45,14 @@ IMAGE_MODEL=gemini-3.1-flash-lite-image
 - Gemma 4는 모든 자료를 함께 비교 분석
 - Nano Banana에는 참고 이미지 최대 6장을 전달
 - 업로드 순서가 분석 자료 번호와 참고 이미지 순서가 됨
+
+
+## JSON 분석 오류 개선
+
+- `responseMimeType: application/json` 적용
+- 지원되는 경우 JSON 응답 스키마 적용
+- 스키마 미지원 400 오류 시 JSON MIME 방식으로 자동 재시도
+- 코드블록·앞뒤 설명 제거
+- 중괄호 균형을 검사해 JSON 객체만 추출
+- 후행 쉼표와 제어문자 정리
+- 파싱 실패 시 Gemma 4에 JSON 복구 요청 1회 수행
