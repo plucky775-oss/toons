@@ -83,7 +83,7 @@ async function generatePanelImages(script, payload){
     })
   });
   const result = await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(result?.error || "이미지 생성 실패");
+  if(!response.ok) throw new Error(result?.error || `이미지 생성 실패 (${response.status})`);
   return result;
 }
 
@@ -221,7 +221,7 @@ $("#generateBtn").addEventListener("click", async () => {
         }));
         $("#status").textContent = `완성했습니다. 대본: ${data.model || "Gemma 4"} · 그림: ${imageResult.model || "Google AI"}`;
       }catch(error){
-        $("#status").textContent = "이미지 API를 사용할 수 없어 무료 SVG 그림으로 완성했습니다.";
+        $("#status").textContent = `이미지 생성 실패: ${error.message} · 무료 SVG 그림으로 완성했습니다.`;
       }
     }
 

@@ -1,0 +1,2 @@
+api/generate-images.js와 app.js를 기존 프로젝트에 덮어쓴 뒤 GitHub에 커밋하고 Vercel에서 Redeploy 하세요.
+IMAGE_MODEL은 gemini-3.1-flash-lite-image로 유지하세요.
