@@ -12,6 +12,7 @@
   <main class="app-shell">
     <header class="hero">
       <div>
+        <p class="eyebrow">AI SAFETY LEARNING STUDIO</p>
         <h1>안전사고 자료를<br><span>교육 콘텐츠</span>로</h1>
         <p class="sub">보고서와 사고사진을 분석해 4컷 만화, 사고 원인, 예방 포인트를 만듭니다.</p>
       </div>
@@ -30,7 +31,7 @@
         <div class="step-number">1</div>
         <div>
           <h2>사고자료 업로드</h2>
-          <p></p>
+          <p>사고보고서 사진·현장사진·PDF 중 하나를 올리고 필요한 설명을 추가하세요.</p>
         </div>
       </div>
 
@@ -40,9 +41,9 @@
             <input id="sourceFiles" type="file"
               accept="image/png,image/jpeg,image/webp,application/pdf"
               multiple />
-            <strong>파일 선택</strong>
-            <span>사진·PDF 최대 8개</span>
-            
+            <strong>사고자료 여러 장 선택</strong>
+            <span>현장사진·보고서 사진·PDF를 최대 8개까지 업로드</span>
+            <span>사진은 전송 전에 자동으로 크기를 줄입니다.</span>
           </label>
 
           <div class="upload-toolbar">
@@ -60,6 +61,23 @@
             사고 개요 또는 보충 설명
             <textarea id="extraContext" maxlength="2000" placeholder="예: 2층 옥상에서 6m 장재를 사람이 운반하던 중 특고압선에 접촉하여 감전 후 사람이 넘어짐"></textarea>
           </label>
+          <label>
+            자료 용도
+            <select id="educationUse">
+              <option>TBM 교육</option>
+              <option>현장 안전교육</option>
+              <option>사고사례 전파</option>
+              <option>관리자 교육</option>
+            </select>
+          </label>
+          <label>
+            부상 표현
+            <select id="injuryLevel">
+              <option value="mild">교육용으로 약하게</option>
+              <option value="omit">사고 순간 생략</option>
+              <option value="moderate">비유혈·비고어 범위에서 표현</option>
+            </select>
+          </label>
         </div>
       </div>
 
@@ -72,7 +90,7 @@
         <div class="step-number">2</div>
         <div>
           <h2>AI 분석 결과</h2>
-          <p>보고서와 사진에서 확인된 사실을 바탕으로 스토리보드를 생성합니다.</p>
+          <p>보고서에 확인된 사실과 만화 제작 전에 확인할 내용을 구분했습니다.</p>
         </div>
       </div>
 
@@ -94,9 +112,16 @@
           <div id="causePreview" class="chip-list"></div>
         </article>
       </div>
+
+      <div id="questionsBox" class="questions-box">
+        <h3>확인이 필요한 내용</h3>
+        <p>자료에 명확히 적혀 있지 않은 사항만 답해주세요.</p>
+        <div id="questionsList"></div>
+      </div>
+
       <div class="actions">
         <button id="backToUploadBtn">자료 다시 선택</button>
-        <button id="confirmAnalysisBtn" class="primary small">스토리보드 생성</button>
+        <button id="confirmAnalysisBtn" class="primary small">확인하고 스토리보드 생성</button>
       </div>
     </section>
 
@@ -126,12 +151,12 @@
     <section id="resultSection" class="result hidden">
       <div class="result-head">
         <div>
+          <p class="eyebrow">SAFETY EDUCATION MATERIAL</p>
           <h2 id="materialTitle">안전사고 교육자료</h2>
         </div>
         <div class="actions">
           <button id="downloadBtn">PNG 저장</button>
           <button id="restartBtn">새 자료 만들기</button>
-          <span id="saveStatus" class="save-status" aria-live="polite"></span>
         </div>
       </div>
 
@@ -141,31 +166,10 @@
           <span id="oneLineLesson"></span>
         </div>
 
-        <div id="comicCanvas" class="comic-panel-grid">
-          <img id="comicImage" class="comic-source-image" alt="AI가 생성한 안전사고 4컷 만화 원본" />
-          <div id="comicPanels"></div>
+        <div class="comic-wrap">
+          <img id="comicImage" alt="AI가 생성한 안전사고 4컷 만화" />
           <div id="comicFallback" class="comic-fallback hidden"></div>
         </div>
-
-        <section class="image-edit-panel">
-          <div>
-            <h3>그림 수정</h3>
-            <p>수정할 컷 번호를 선택한 뒤, 해당 컷에서 바꿀 내용만 입력하세요.</p>
-          </div>
-
-          <div class="panel-selector" role="radiogroup" aria-label="수정할 컷 선택">
-            <label><input type="radio" name="revisionPanel" value="1" checked><span>1컷</span></label>
-            <label><input type="radio" name="revisionPanel" value="2"><span>2컷</span></label>
-            <label><input type="radio" name="revisionPanel" value="3"><span>3컷</span></label>
-            <label><input type="radio" name="revisionPanel" value="4"><span>4컷</span></label>
-          </div>
-
-          <textarea id="imageRevisionNote" maxlength="1200"
-            placeholder="예: 작업자가 전선을 손으로 만지지 않게 하고, 붐대가 버켓에 정상적으로 연결되도록 수정"></textarea>
-
-          <button id="reviseImageBtn" type="button">선택한 컷 수정하기</button>
-          <p id="revisionStatus" aria-live="polite"></p>
-        </section>
 
         <section class="storyboard-captions">
           <h3>컷별 교육 내용</h3>
