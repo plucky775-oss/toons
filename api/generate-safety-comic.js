@@ -84,8 +84,16 @@ VISUAL STYLE:
 - clear hazard relationships and expressive but natural poses
 - non-graphic, no blood, no gore
 - injury presentation level: ${injuryLevel}
-- no text, no speech bubbles, no captions, no numbers, no logos
+- absolutely no written text of any language
+- no Korean letters, no English letters, no numbers, no symbols used as labels
+- no speech bubbles, no caption boxes, no title cards, no signs, no watermarks
+- leave clean open space near the top and bottom of each panel for app overlays
 - exact 2x2 layout with clear black panel borders
+- use clearly different camera compositions in each panel:
+  panel 1 wide establishing shot,
+  panel 2 medium action shot,
+  panel 3 close-up of the hazard or accident moment,
+  panel 4 wide instructional shot showing all prevention measures
 - panel 4 must visibly demonstrate the correct prevention measures
 
 STORYBOARD:
