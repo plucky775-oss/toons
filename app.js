@@ -1,7 +1,10 @@
 const $ = (s) => document.querySelector(s);
-let sourceData = null;
+let sourceFilesData = [];
 let analysisData = null;
 let educationData = null;
+const MAX_FILES = 8;
+const MAX_PDF_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGE_SOURCE_BYTES = 12 * 1024 * 1024;
 
 function setStep(step){
   document.querySelectorAll(".steps span").forEach(el=>{
@@ -29,26 +32,157 @@ function fileToData(file){
   });
 }
 
-$("#sourceFile").addEventListener("change", async (event)=>{
-  const file = event.target.files?.[0];
-  if(!file) return;
-  if(file.size > 4 * 1024 * 1024){
-    $("#status").textContent = "파일은 4MB 이하로 올려주세요.";
-    event.target.value = "";
+async function compressImage(file){
+  const bitmap = await createImageBitmap(file);
+  const maxDimension = 1600;
+  const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap,0,0,width,height);
+  bitmap.close();
+
+  const blob = await new Promise(resolve=>
+    canvas.toBlob(resolve,"image/jpeg",0.82)
+  );
+  if(!blob) throw new Error("이미지 압축에 실패했습니다.");
+
+  return {
+    name:file.name.replace(/\.[^.]+$/,"") + ".jpg",
+    mimeType:"image/jpeg",
+    data:await fileToData(blob),
+    originalSize:file.size,
+    compressedSize:blob.size,
+    previewUrl:URL.createObjectURL(blob),
+    kind:"image"
+  };
+}
+
+async function prepareFile(file){
+  if(file.type.startsWith("image/")){
+    if(file.size > MAX_IMAGE_SOURCE_BYTES){
+      throw new Error(`${file.name}: 원본 사진은 12MB 이하만 가능합니다.`);
+    }
+    return compressImage(file);
+  }
+
+  if(file.type === "application/pdf"){
+    if(file.size > MAX_PDF_BYTES){
+      throw new Error(`${file.name}: PDF는 4MB 이하만 가능합니다.`);
+    }
+    return {
+      name:file.name,
+      mimeType:file.type,
+      data:await fileToData(file),
+      originalSize:file.size,
+      compressedSize:file.size,
+      previewUrl:null,
+      kind:"pdf"
+    };
+  }
+
+  throw new Error(`${file.name}: 지원하지 않는 파일 형식입니다.`);
+}
+
+function formatBytes(bytes=0){
+  if(bytes < 1024) return `${bytes}B`;
+  if(bytes < 1024*1024) return `${(bytes/1024).toFixed(0)}KB`;
+  return `${(bytes/1024/1024).toFixed(2)}MB`;
+}
+
+function moveFile(index,direction){
+  const next = index + direction;
+  if(next < 0 || next >= sourceFilesData.length) return;
+  [sourceFilesData[index],sourceFilesData[next]] =
+    [sourceFilesData[next],sourceFilesData[index]];
+  renderPreviews();
+}
+
+function removeFile(index){
+  const item = sourceFilesData[index];
+  if(item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
+  sourceFilesData.splice(index,1);
+  renderPreviews();
+}
+
+function renderPreviews(){
+  $("#fileCount").textContent = `선택된 자료 ${sourceFilesData.length}개`;
+  const grid = $("#previewGrid");
+
+  if(!sourceFilesData.length){
+    grid.innerHTML = `<p class="empty-preview">아직 선택한 자료가 없습니다.</p>`;
     return;
   }
-  sourceData = {
-    name:file.name,
-    mimeType:file.type || "application/octet-stream",
-    data:await fileToData(file)
-  };
-  $("#fileName").textContent = `${file.name} · ${(file.size/1024/1024).toFixed(2)}MB`;
-  if(file.type.startsWith("image/")){
-    $("#previewImage").src = URL.createObjectURL(file);
-    $("#previewImage").classList.remove("hidden");
-  }else{
-    $("#previewImage").classList.add("hidden");
+
+  grid.innerHTML = sourceFilesData.map((item,index)=>`
+    <article class="preview-card">
+      ${item.kind === "image"
+        ? `<img src="${item.previewUrl}" alt="${escapeHtml(item.name)} 미리보기">`
+        : `<div class="pdf-preview" aria-label="PDF 파일">📄</div>`}
+      <div class="order-actions">
+        <button type="button" data-move="${index},-1" aria-label="앞으로 이동">←</button>
+        <button type="button" data-move="${index},1" aria-label="뒤로 이동">→</button>
+      </div>
+      <div class="preview-actions">
+        <button type="button" data-remove="${index}" aria-label="파일 삭제">×</button>
+      </div>
+      <div class="preview-meta">
+        <strong>${index+1}. ${escapeHtml(item.name)}</strong>
+        <span>${item.kind === "image"
+          ? `${formatBytes(item.originalSize)} → ${formatBytes(item.compressedSize)}`
+          : formatBytes(item.compressedSize)}</span>
+      </div>
+    </article>
+  `).join("");
+
+  grid.querySelectorAll("[data-remove]").forEach(button=>{
+    button.addEventListener("click",()=>removeFile(Number(button.dataset.remove)));
+  });
+  grid.querySelectorAll("[data-move]").forEach(button=>{
+    const [index,direction] = button.dataset.move.split(",").map(Number);
+    button.addEventListener("click",()=>moveFile(index,direction));
+  });
+}
+
+$("#sourceFiles").addEventListener("change", async (event)=>{
+  const selected = Array.from(event.target.files || []);
+  event.target.value = "";
+  if(!selected.length) return;
+
+  const remaining = MAX_FILES - sourceFilesData.length;
+  if(remaining <= 0){
+    $("#status").textContent = `자료는 최대 ${MAX_FILES}개까지 올릴 수 있습니다.`;
+    return;
   }
+
+  $("#status").textContent = "사진 크기를 조정하고 있습니다…";
+  const accepted = selected.slice(0,remaining);
+
+  try{
+    for(const file of accepted){
+      sourceFilesData.push(await prepareFile(file));
+      renderPreviews();
+    }
+    if(selected.length > remaining){
+      $("#status").textContent = `최대 ${MAX_FILES}개까지만 추가했습니다.`;
+    }else{
+      $("#status").textContent = `${sourceFilesData.length}개 자료가 준비됐습니다.`;
+    }
+  }catch(error){
+    $("#status").textContent = error.message;
+  }
+});
+
+$("#clearFilesBtn").addEventListener("click",()=>{
+  sourceFilesData.forEach(item=>{
+    if(item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+  });
+  sourceFilesData = [];
+  renderPreviews();
 });
 
 async function postJson(url,payload){
@@ -82,7 +216,7 @@ function renderAnalysis(data){
 }
 
 $("#analyzeBtn").addEventListener("click",async ()=>{
-  if(!sourceData && !$("#extraContext").value.trim()){
+  if(!sourceFilesData.length && !$("#extraContext").value.trim()){
     $("#status").textContent = "사고자료 파일이나 사고 개요를 입력해주세요.";
     return;
   }
@@ -90,7 +224,13 @@ $("#analyzeBtn").addEventListener("click",async ()=>{
   $("#status").textContent = "Gemma 4가 사고자료를 분석하고 있습니다…";
   try{
     analysisData = await postJson("/api/analyze-accident",{
-      file:sourceData,
+      files:sourceFilesData.map(({name,mimeType,data,kind},index)=>({
+        name,
+        mimeType,
+        data,
+        kind,
+        order:index+1
+      })),
       extraContext:$("#extraContext").value.trim(),
       educationUse:$("#educationUse").value
     });
@@ -226,7 +366,10 @@ $("#generateImageBtn").addEventListener("click",async ()=>{
   $("#imageStatus").textContent = "Nano Banana 2 Lite가 4컷 만화를 생성하고 있습니다…";
   try{
     const imageResult = await postJson("/api/generate-safety-comic",{
-      sourceFile:sourceData?.mimeType?.startsWith("image/") ? sourceData : null,
+      sourceImages:sourceFilesData
+        .filter(item=>item.kind==="image")
+        .slice(0,6)
+        .map(({name,mimeType,data},index)=>({name,mimeType,data,order:index+1})),
       education:educationData,
       injuryLevel:$("#injuryLevel").value
     });

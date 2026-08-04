@@ -36,13 +36,25 @@
       </div>
 
       <div class="upload-grid">
-        <label class="drop-zone" for="sourceFile">
-          <input id="sourceFile" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" />
-          <strong>사진 또는 PDF 선택</strong>
-          <span>JPG · PNG · WEBP · PDF / 최대 4MB</span>
-          <img id="previewImage" class="hidden" alt="업로드 미리보기" />
-          <div id="fileName" class="file-name">선택된 파일 없음</div>
-        </label>
+        <div class="multi-upload">
+          <label class="drop-zone" for="sourceFiles">
+            <input id="sourceFiles" type="file"
+              accept="image/png,image/jpeg,image/webp,application/pdf"
+              multiple />
+            <strong>사고자료 여러 장 선택</strong>
+            <span>현장사진·보고서 사진·PDF를 최대 8개까지 업로드</span>
+            <span>사진은 전송 전에 자동으로 크기를 줄입니다.</span>
+          </label>
+
+          <div class="upload-toolbar">
+            <strong id="fileCount">선택된 자료 0개</strong>
+            <button id="clearFilesBtn" type="button">전체 삭제</button>
+          </div>
+
+          <div id="previewGrid" class="preview-grid">
+            <p class="empty-preview">아직 선택한 자료가 없습니다.</p>
+          </div>
+        </div>
 
         <div class="input-stack">
           <label>
