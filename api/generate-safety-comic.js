@@ -18,12 +18,16 @@ export default async function handler(req,res){
   const apiKey=process.env.GEMINI_API_KEY||process.env.GOOGLE_API_KEY;
   if(!apiKey) return res.status(503).json({error:"GEMINI_API_KEY가 없습니다."});
 
-  const {sourceFile,education,injuryLevel}=req.body||{};
+  const {sourceImages,education,injuryLevel}=req.body||{};
   if(!education?.storyboard?.length) return res.status(400).json({error:"스토리보드가 없습니다."});
 
   const parts=[];
-  if(sourceFile?.data&&sourceFile?.mimeType){
-    parts.push({inlineData:{mimeType:sourceFile.mimeType,data:sourceFile.data}});
+  const references=Array.isArray(sourceImages)?sourceImages.slice(0,6):[];
+  for(const image of references){
+    if(image?.data&&image?.mimeType){
+      parts.push({text:`Reference image ${image.order||""}: ${image.name||"uploaded safety material"}`});
+      parts.push({inlineData:{mimeType:image.mimeType,data:image.data}});
+    }
   }
 
   const panels=education.storyboard.map((p,i)=>`${i+1}컷 ${p.title}
@@ -33,7 +37,9 @@ export default async function handler(req,res){
   parts.push({text:`
 Create one square 2x2 grid safety education comic containing exactly four panels.
 
-The uploaded image, if present, is reference material only. Reconstruct the work situation as a clean Korean industrial safety webtoon. Do not copy private names, document text, logos, phone numbers, addresses, or identifying details.
+The uploaded images, if present, are reference materials only.
+Use all reference images together to understand the worksite, equipment, clothing, material shape, and accident context.
+When the references disagree, follow the confirmed storyboard rather than guessing. Reconstruct the work situation as a clean Korean industrial safety webtoon. Do not copy private names, document text, logos, phone numbers, addresses, or identifying details.
 
 STRICT FACTUAL RULES:
 - Use only the described people, objects, equipment, and accident sequence.
