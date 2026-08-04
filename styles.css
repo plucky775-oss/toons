@@ -167,3 +167,20 @@ textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba
 }
 .image-edit-panel button:disabled{opacity:.55;cursor:not-allowed}
 #revisionStatus{min-height:20px;margin-top:9px;text-align:center;font-weight:750}
+
+.panel-selector{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px
+}
+.panel-selector label{position:relative;cursor:pointer}
+.panel-selector input{position:absolute;opacity:0;pointer-events:none}
+.panel-selector span{
+  display:block;text-align:center;padding:11px 8px;border-radius:12px;
+  border:1.5px solid #cbd5e1;background:#fff;color:#334155;font-weight:900
+}
+.panel-selector input:checked + span{
+  background:#1d4ed8;color:#fff;border-color:#1d4ed8;
+  box-shadow:0 0 0 3px rgba(37,99,235,.12)
+}
+@media(max-width:520px){
+  .panel-selector{grid-template-columns:repeat(2,1fr)}
+}

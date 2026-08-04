@@ -203,17 +203,7 @@ function renderAnalysis(data){
   $("#confirmedFacts").innerHTML = (data.confirmedFacts || []).map(v=>`<li>${escapeHtml(v)}</li>`).join("");
   $("#causePreview").innerHTML = (data.causeCandidates || []).map(v=>`<span class="chip">${escapeHtml(v.name || v)}</span>`).join("");
 
-  const questions = data.questions || [];
-  $("#questionsList").innerHTML = questions.length ? questions.map((q,index)=>{
-    const options = Array.isArray(q.options) && q.options.length
-      ? `<div class="option-row">${q.options.map((option,optIndex)=>`
-          <label><input type="radio" name="question_${index}" value="${escapeHtml(option)}" ${optIndex===0?"checked":""}>${escapeHtml(option)}</label>
-        `).join("")}</div>`
-      : `<textarea class="question-text" data-question-index="${index}" placeholder="확인 내용을 입력하세요"></textarea>`;
-    return `<div class="question-item" data-id="${escapeHtml(q.id || String(index))}">
-      <strong>${index+1}. ${escapeHtml(q.question)}</strong>${options}
-    </div>`;
-  }).join("") : `<p>추가로 확인할 내용이 없습니다. 바로 스토리보드를 만들 수 있습니다.</p>`;
+  $("#questionsList")?.replaceChildren();
 }
 
 $("#analyzeBtn").addEventListener("click",async ()=>{
@@ -236,6 +226,7 @@ $("#analyzeBtn").addEventListener("click",async ()=>{
       educationUse:"안전사고 교육자료"
     });
     renderAnalysis(analysisData);
+    $("#questionsBox")?.classList.add("hidden");
     $("#analysisSection").classList.remove("hidden");
     setStep(2);
     show($("#analysisSection"));
@@ -248,15 +239,7 @@ $("#analyzeBtn").addEventListener("click",async ()=>{
 });
 
 function collectAnswers(){
-  return (analysisData?.questions || []).map((q,index)=>{
-    const radio = document.querySelector(`input[name="question_${index}"]:checked`);
-    const text = document.querySelector(`textarea[data-question-index="${index}"]`);
-    return {
-      id:q.id || String(index),
-      question:q.question,
-      answer:radio?.value || text?.value?.trim() || "사용자 확인 없음"
-    };
-  });
+  return [];
 }
 
 function renderStoryboard(data){
@@ -290,7 +273,7 @@ async function createStoryboard(){
     alert(`스토리보드 생성 실패: ${error.message}`);
   }finally{
     $("#confirmAnalysisBtn").disabled = false;
-    $("#confirmAnalysisBtn").textContent = "확인하고 스토리보드 생성";
+    $("#confirmAnalysisBtn").textContent = "스토리보드 생성";
   }
 }
 
@@ -500,6 +483,9 @@ $("#downloadBtn").addEventListener("click",savePngFile);
 
 async function reviseComicImage(){
   const note = $("#imageRevisionNote")?.value.trim();
+  const selectedPanel = Number(
+    document.querySelector('input[name="revisionPanel"]:checked')?.value || 1
+  );
   const button = $("#reviseImageBtn");
   const status = $("#revisionStatus");
 
@@ -513,13 +499,14 @@ async function reviseComicImage(){
   }
 
   button.disabled = true;
-  button.textContent = "그림 수정 중…";
-  if(status) status.textContent = "기존 그림을 참고해 요청한 부분만 수정하고 있습니다.";
+  button.textContent = `${selectedPanel}컷 수정 중…`;
+  if(status) status.textContent = `${selectedPanel}컷만 수정하고 있습니다.`;
 
   try{
     const result = await postJson("/api/revise-safety-comic",{
       currentImageDataUrl:currentComicImageDataUrl,
       education:educationData,
+      revisionPanel:selectedPanel,
       revisionNote:note,
       sourceImages:sourceFilesData
         .filter(item=>item.kind==="image")
@@ -542,7 +529,7 @@ async function reviseComicImage(){
     if(status) status.textContent = `그림 수정 실패: ${error.message}`;
   }finally{
     button.disabled = false;
-    button.textContent = "그림 수정하기";
+    button.textContent = "선택한 컷 수정하기";
   }
 }
 
