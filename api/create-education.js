@@ -67,7 +67,7 @@ JSON만 출력:
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         contents:[{role:"user",parts:[{text:prompt}]}],
-        generationConfig:{temperature:0.35,maxOutputTokens:3500,thinkingConfig:{thinkingLevel:"high"}}
+        generationConfig:{temperature:0.3,maxOutputTokens:3500,responseMimeType:"application/json"}
       })
     });
     const raw=await response.json().catch(()=>({}));
