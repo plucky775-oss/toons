@@ -1,2 +1,6 @@
-AI 그림에서는 글자를 제거하고 앱이 컷 번호·제목·대사·교육포인트를 합성하도록 수정했습니다.
-모든 파일을 기존 프로젝트에 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
+보고서와 확인자료에 없는 시설·장비·인력을 그림에 추가하지 않도록 수정했습니다.
+핵심 교체 파일:
+- api/create-education.js
+- api/generate-safety-comic.js
+
+덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
