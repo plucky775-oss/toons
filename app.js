@@ -494,6 +494,63 @@ async function savePngFile(){
 $("#downloadBtn").addEventListener("click",savePngFile);
 
 
+
+function loadDataUrlImage(dataUrl){
+  return new Promise((resolve,reject)=>{
+    const image = new Image();
+    image.onload = ()=>resolve(image);
+    image.onerror = ()=>reject(new Error("만화 이미지를 불러오지 못했습니다."));
+    image.src = dataUrl;
+  });
+}
+
+async function cropComicPanel(fullImageDataUrl,panelNumber){
+  const image = await loadDataUrlImage(fullImageDataUrl);
+  const halfWidth = Math.floor(image.naturalWidth / 2);
+  const halfHeight = Math.floor(image.naturalHeight / 2);
+  const index = Number(panelNumber) - 1;
+  const sourceX = index % 2 === 0 ? 0 : image.naturalWidth - halfWidth;
+  const sourceY = index < 2 ? 0 : image.naturalHeight - halfHeight;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = halfWidth;
+  canvas.height = halfHeight;
+  const context = canvas.getContext("2d");
+  context.drawImage(
+    image,
+    sourceX,sourceY,halfWidth,halfHeight,
+    0,0,halfWidth,halfHeight
+  );
+  return canvas.toDataURL("image/png");
+}
+
+async function replaceComicPanel(fullImageDataUrl,panelImageDataUrl,panelNumber){
+  const [fullImage,panelImage] = await Promise.all([
+    loadDataUrlImage(fullImageDataUrl),
+    loadDataUrlImage(panelImageDataUrl)
+  ]);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = fullImage.naturalWidth;
+  canvas.height = fullImage.naturalHeight;
+  const context = canvas.getContext("2d");
+  context.drawImage(fullImage,0,0);
+
+  const halfWidth = Math.floor(canvas.width / 2);
+  const halfHeight = Math.floor(canvas.height / 2);
+  const index = Number(panelNumber) - 1;
+  const targetX = index % 2 === 0 ? 0 : canvas.width - halfWidth;
+  const targetY = index < 2 ? 0 : canvas.height - halfHeight;
+
+  context.drawImage(
+    panelImage,
+    0,0,panelImage.naturalWidth,panelImage.naturalHeight,
+    targetX,targetY,halfWidth,halfHeight
+  );
+
+  return canvas.toDataURL("image/png");
+}
+
 async function reviseComicImage(){
   const note = $("#imageRevisionNote")?.value.trim();
   const selectedPanel = Number(
@@ -513,11 +570,16 @@ async function reviseComicImage(){
 
   button.disabled = true;
   button.textContent = `${selectedPanel}컷 수정 중…`;
-  if(status) status.textContent = `${selectedPanel}컷만 수정하고 있습니다.`;
+  if(status) status.textContent = `${selectedPanel}컷을 분리해 수정하고 있습니다.`;
 
   try{
+    const currentPanelDataUrl = await cropComicPanel(
+      currentComicImageDataUrl,
+      selectedPanel
+    );
+
     const result = await postJson("/api/revise-safety-comic",{
-      currentImageDataUrl:currentComicImageDataUrl,
+      currentPanelDataUrl,
       education:educationData,
       revisionPanel:selectedPanel,
       revisionNote:note,
@@ -527,16 +589,21 @@ async function reviseComicImage(){
         .map(({name,mimeType,data},index)=>({name,mimeType,data,order:index+1}))
     });
 
-    currentComicImageDataUrl = result.imageDataUrl;
-    $("#comicImage").src = result.imageDataUrl;
+    const composedImageDataUrl = await replaceComicPanel(
+      currentComicImageDataUrl,
+      result.panelImageDataUrl,
+      selectedPanel
+    );
+
+    currentComicImageDataUrl = composedImageDataUrl;
+    $("#comicImage").src = composedImageDataUrl;
+    updateComicPanelImages(composedImageDataUrl);
     $("#comicImage").classList.add("hidden");
     $("#comicPanels").classList.remove("hidden");
     $("#comicFallback").classList.add("hidden");
 
     if(status){
-      status.textContent = result?.verification?.pass
-        ? "그림 수정 및 자동검증을 완료했습니다."
-        : "그림은 수정됐지만 결과를 한 번 더 확인해주세요.";
+      status.textContent = `${selectedPanel}컷만 수정했습니다. 다른 컷은 그대로 유지됩니다.`;
     }
   }catch(error){
     if(status) status.textContent = `그림 수정 실패: ${error.message}`;
