@@ -38,7 +38,7 @@ function imageFromResponse(raw) {
   return null;
 }
 
-function buildRevisionPrompt(education, revisionNote) {
+function buildRevisionPrompt(education, revisionPanel, revisionNote) {
   const panels = (education?.storyboard || [])
     .map((panel, index) => `${index + 1}컷 장면: ${panel.scene}`)
     .join("\n");
@@ -46,18 +46,23 @@ function buildRevisionPrompt(education, revisionNote) {
   return `
 Edit the provided existing 2x2 industrial safety comic.
 
+TARGET PANEL:
+Panel ${revisionPanel} only.
+
 USER REVISION REQUEST:
 ${revisionNote}
 
 APPROVED STORYBOARD:
 ${panels}
 
-EDITING RULES:
-- Keep the same 2x2 panel structure.
-- Keep the same worksite, workers, truck, boom, bucket, poles, conductors,
-  trees, road, weather, and visual style unless the user specifically requests
-  a correction to one of those elements.
-- Correct only the requested visual errors.
+PANEL-LOCK EDITING RULES:
+- Edit panel ${revisionPanel} only.
+- Panels other than ${revisionPanel} are locked and must remain visually unchanged.
+- Preserve the exact content, composition, character pose, equipment placement,
+  background, lighting, and crop of the three locked panels.
+- Keep the same 2x2 panel structure and panel boundaries.
+- In panel ${revisionPanel}, correct only the requested visual errors.
+- Do not alter the title overlay areas or create any text.
 - Do not rewrite the accident facts or change the approved sequence.
 - The bucket truck boom must be one continuous mechanical chain from truck
   turntable to bucket mounting point and bucket.
@@ -127,11 +132,17 @@ export default async function handler(req, res) {
   const {
     currentImageDataUrl,
     education,
+    revisionPanel,
     revisionNote,
     sourceImages
   } = req.body || {};
 
-  if (!currentImageDataUrl || !revisionNote || !education?.storyboard) {
+  if (
+    !currentImageDataUrl ||
+    !revisionNote ||
+    !education?.storyboard ||
+    ![1,2,3,4].includes(Number(revisionPanel))
+  ) {
     return res.status(400).json({ error: "수정할 그림, 스토리보드, 수정 지시가 필요합니다." });
   }
 
@@ -148,7 +159,7 @@ export default async function handler(req, res) {
     }
   }
 
-  parts.push({ text: buildRevisionPrompt(education, revisionNote) });
+  parts.push({ text: buildRevisionPrompt(education, Number(revisionPanel), revisionNote) });
 
   let lastError;
   for (const model of imageModelCandidates()) {

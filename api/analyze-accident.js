@@ -108,7 +108,7 @@ function parseMarkedResponse(text = "") {
     ),
     causeCandidates: parseCauses(section(normalized, "CAUSES")),
     hazards: splitItems(section(normalized, "HAZARDS")),
-    questions: parseQuestions(section(normalized, "QUESTIONS")),
+    questions: [],
     sensitiveDetails: splitItems(section(normalized, "SENSITIVE"))
   };
 }
@@ -202,7 +202,8 @@ export default async function handler(req, res) {
 - 자료에 없는 사람, 장비, 행동, 원인, 사고결과를 추가하지 않는다.
 - 사람, 자재, 전주 등 행동의 주어를 임의로 바꾸지 않는다.
 - 사진만으로 확정할 수 없는 내용은 확인된 사실로 쓰지 않는다.
-- 불명확한 내용은 QUESTIONS에 넣는다.
+- 불명확한 내용은 임의로 확정하지 말고, confirmedFacts에서 제외한다.
+- 사용자에게 질문을 만들지 않는다.
 - 사고 원인은 입력 내용에서 근거가 있는 후보만 제시한다.
 - 법령 조문 번호를 만들지 않는다.
 - 아래 표식과 순서를 정확히 지킨다.
@@ -242,8 +243,7 @@ ${String(educationUse || "안전교육")}
 - 위험요인
 
 [QUESTIONS]
-- 확인 질문 | 선택지1/선택지2/기타 또는 모름
-질문이 없으면 아무 항목도 쓰지 말 것
+아무 항목도 쓰지 말 것
 
 [SENSITIVE]
 - 개인정보 또는 가려야 할 내용
