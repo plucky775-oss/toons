@@ -1,2 +1,2 @@
-첫 화면 보조문구와 모델명 배지를 제거하고 업로드 칸을 작게 줄인 파일입니다.
-index.html과 styles.css를 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
+말풍선과 교육문구를 그림 밖으로 이동한 수정본입니다.
+index.html, styles.css, app.js를 덮어쓴 뒤 Vercel 재배포하세요.

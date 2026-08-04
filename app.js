@@ -289,35 +289,48 @@ function collectEditedStoryboard(){
 }
 
 
-function renderComicOverlay(storyboard){
-  const overlay = $("#comicOverlay");
-  if(!overlay) return;
+function renderComicPanels(storyboard, imageDataUrl){
+  const panels = $("#comicPanels");
+  if(!panels) return;
 
-  overlay.innerHTML = (storyboard || []).slice(0,4).map((panel,index)=>`
-    <section class="overlay-panel">
-      <span class="cut-badge">${index+1}</span>
-      <div class="panel-title">${escapeHtml(panel.title || `${index+1}컷`)}</div>
-      ${panel.dialogue ? `<div class="speech-bubble">${escapeHtml(panel.dialogue)}</div>` : ""}
-      <div class="education-strip">${escapeHtml(panel.educationPoint || "")}</div>
-    </section>
+  const positions = ["0% 0%", "100% 0%", "0% 100%", "100% 100%"];
+  panels.innerHTML = (storyboard || []).slice(0,4).map((panel,index)=>`
+    <article class="comic-panel-card">
+      <header class="comic-panel-title">
+        <span>${index+1}</span>
+        <strong>${escapeHtml(panel.title || `${index+1}컷`)}</strong>
+      </header>
+      <div class="comic-panel-image" data-panel-image="${index}"
+        style="background-position:${positions[index]};${imageDataUrl ? `background-image:url('${imageDataUrl}')` : ""}"></div>
+      ${panel.dialogue ? `<p class="comic-panel-dialogue">${escapeHtml(panel.dialogue)}</p>` : ""}
+      <p class="comic-panel-point">${escapeHtml(panel.educationPoint || "")}</p>
+    </article>
   `).join("");
+}
+
+function updateComicPanelImages(imageDataUrl){
+  const positions = ["0% 0%", "100% 0%", "0% 100%", "100% 100%"];
+  document.querySelectorAll("[data-panel-image]").forEach((element,index)=>{
+    element.style.backgroundImage = `url('${imageDataUrl}')`;
+    element.style.backgroundPosition = positions[index];
+  });
 }
 
 function renderResult(data,imageResult){
   $("#materialTitle").textContent = data.title || "안전사고 교육자료";
   $("#resultSummary").textContent = data.summary || analysisData.summary;
   $("#oneLineLesson").textContent = data.oneLineLesson || "";
-  renderComicOverlay(data.storyboard || []);
   const image = imageResult?.imageDataUrl;
+  renderComicPanels(data.storyboard || [], image);
   if(image){
     currentComicImageDataUrl = image;
     $("#comicImage").src = image;
-    $("#comicImage").classList.remove("hidden");
-    $("#comicOverlay").classList.remove("hidden");
+    $("#comicImage").classList.add("hidden");
+    $("#comicPanels").classList.remove("hidden");
     $("#comicFallback").classList.add("hidden");
   }else{
     $("#comicImage").classList.add("hidden");
-    $("#comicOverlay").classList.add("hidden");
+    $("#comicPanels").classList.add("hidden");
     $("#comicFallback").classList.remove("hidden");
     $("#comicFallback").innerHTML = "<strong>이미지 생성에 실패했습니다.</strong><p>스토리보드와 원인 교육자료는 정상 생성되었습니다.</p>";
   }
@@ -516,8 +529,8 @@ async function reviseComicImage(){
 
     currentComicImageDataUrl = result.imageDataUrl;
     $("#comicImage").src = result.imageDataUrl;
-    $("#comicImage").classList.remove("hidden");
-    $("#comicOverlay").classList.remove("hidden");
+    $("#comicImage").classList.add("hidden");
+    $("#comicPanels").classList.remove("hidden");
     $("#comicFallback").classList.add("hidden");
 
     if(status){

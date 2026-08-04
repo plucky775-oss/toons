@@ -229,3 +229,27 @@ textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba
   .drop-zone{height:118px;min-height:118px !important}
   #extraContext{min-height:130px}
 }
+
+
+/* Four-cut layout: keep all text outside the illustration */
+.comic-panel-grid{position:relative;background:#fff}
+.comic-source-image{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#comicPanels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.comic-panel-card{display:flex;flex-direction:column;min-width:0;border:3px solid #111827;border-radius:10px;overflow:hidden;background:#fff}
+.comic-panel-title{display:flex;align-items:center;gap:8px;min-height:44px;padding:7px 10px;background:#fff;border-bottom:2px solid #111827}
+.comic-panel-title span{flex:0 0 auto;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#facc15;border:2px solid #111827;font-weight:950}
+.comic-panel-title strong{font-size:clamp(14px,1.7vw,20px);line-height:1.15}
+.comic-panel-image{width:100%;aspect-ratio:1/1;background-repeat:no-repeat;background-size:200% 200%;background-color:#eef2f7}
+.comic-panel-dialogue{margin:0;padding:10px 12px;background:#fff;border-top:2px solid #cbd5e1;font-size:clamp(12px,1.35vw,16px);font-weight:850;line-height:1.4;text-align:center}
+.comic-panel-point{margin:0;padding:9px 12px;background:#0f172a;color:#fff;font-size:clamp(11px,1.15vw,14px);font-weight:750;line-height:1.4;text-align:center}
+.storyboard-captions{display:none}
+.comic-wrap,.comic-overlay,.overlay-panel,.speech-bubble,.education-strip{all:unset}
+@media(max-width:620px){
+  #comicPanels{gap:6px}
+  .comic-panel-card{border-width:2px;border-radius:7px}
+  .comic-panel-title{min-height:36px;padding:5px 6px;gap:5px}
+  .comic-panel-title span{width:25px;height:25px;font-size:13px}
+  .comic-panel-title strong{font-size:13px}
+  .comic-panel-dialogue{padding:7px 7px;font-size:11px}
+  .comic-panel-point{padding:7px 7px;font-size:10px}
+}

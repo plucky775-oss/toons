@@ -2,7 +2,7 @@
 
 사고보고서 사진·현장사진·작업 전후 사진·PDF를 최대 8개까지 입력하면 다음 과정을 수행합니다.
 
-1. Gemma 4 사고분석
+1. Gemini AI 사고분석
 2. 확인된 사실과 불명확한 내용 분리
 3. 사용자 확인
 4. 4컷 스토리보드 생성
@@ -14,7 +14,7 @@
 
 ```text
 GEMINI_API_KEY=Google AI Studio API 키
-GEMMA_MODEL=gemma-4-26b-a4b-it
+ANALYSIS_MODEL=gemini-3.1-flash-lite
 IMAGE_MODEL=gemini-3.1-flash-lite-image
 ```
 
@@ -42,7 +42,7 @@ IMAGE_MODEL=gemini-3.1-flash-lite-image
 - 사진은 브라우저에서 최대 1600px, JPEG 품질 0.82로 자동 압축
 - PDF는 파일당 최대 4MB
 - 미리보기에서 삭제 및 순서 변경 가능
-- Gemma 4는 모든 자료를 함께 비교 분석
+- Gemini AI는 모든 자료를 함께 비교 분석
 - Nano Banana에는 참고 이미지 최대 6장을 전달
 - 업로드 순서가 분석 자료 번호와 참고 이미지 순서가 됨
 
@@ -55,17 +55,17 @@ IMAGE_MODEL=gemini-3.1-flash-lite-image
 - 코드블록·앞뒤 설명 제거
 - 중괄호 균형을 검사해 JSON 객체만 추출
 - 후행 쉼표와 제어문자 정리
-- 파싱 실패 시 Gemma 4에 JSON 복구 요청 1회 수행
+- 파싱 실패 시 Gemini AI에 JSON 복구 요청 1회 수행
 
 
 ## 2026-08-05 분석 형식 안정화
 
-Gemma 4가 유효하지 않은 JSON을 반복 출력하는 문제 때문에 분석 응답 형식을 변경했습니다.
+Gemini AI가 유효하지 않은 JSON을 반복 출력하는 문제 때문에 분석 응답 형식을 변경했습니다.
 
-- Gemma 4 출력: `[SUMMARY]`, `[SEQUENCE]` 같은 고정 표식
+- Gemini AI 출력: `[SUMMARY]`, `[SEQUENCE]` 같은 고정 표식
 - 서버: 표식별 텍스트를 직접 구조화하여 프론트엔드에 JSON으로 반환
 - JSON 생성은 AI가 아니라 서버 코드가 담당
-- 형식이 누락되면 Gemma 4에 표식 교정만 1회 요청
+- 형식이 누락되면 Gemini AI에 표식 교정만 1회 요청
 - 사진 없이 짧은 사고 개요만 입력해도 동일하게 작동
 
 
@@ -188,3 +188,13 @@ Google AI Studio 프로젝트의 결제 및 Rate Limits를 확인해야 합니�
 - 자동 설정 안내 제거
 - 파일 업로드 영역 높이 축소
 - 선택된 자료는 아래 미리보기 카드에만 표시
+
+
+## 그림과 문구 배치 개선
+
+- 하나의 2×2 AI 이미지를 네 개의 컷으로 분리해 표시
+- 컷 제목은 그림 위 별도 영역에 표시
+- 대사와 교육포인트는 그림 아래에 표시
+- 그림 위를 덮는 말풍선과 검은 설명띠 제거
+- PNG 저장에도 동일한 배치 반영
+- 중복되는 하단 ‘컷별 교육 내용’ 카드 숨김
