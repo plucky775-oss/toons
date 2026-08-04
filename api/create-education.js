@@ -1,4 +1,4 @@
-const MODEL = process.env.GEMMA_MODEL || "gemma-4-26b-a4b-it";
+const ANALYSIS_MODEL = process.env.ANALYSIS_MODEL || process.env.GEMMA_MODEL || "gemini-3.1-flash-lite";
 
 function extractJson(text=""){
   const cleaned=String(text).replace(/```json/gi,"").replace(/```/g,"").trim();
@@ -63,7 +63,7 @@ JSON만 출력:
 `;
 
   try{
-    const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,{
+    const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(ANALYSIS_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         contents:[{role:"user",parts:[{text:prompt}]}],
@@ -71,7 +71,7 @@ JSON만 출력:
       })
     });
     const raw=await response.json().catch(()=>({}));
-    if(!response.ok) throw new Error(raw?.error?.message||`Gemma API ${response.status}`);
+    if(!response.ok) throw new Error(raw?.error?.message||`Gemini API ${response.status}`);
     const text=raw?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
     const data=extractJson(text);
     if(!Array.isArray(data.storyboard)||data.storyboard.length!==4) throw new Error("4컷 대본이 올바르지 않습니다.");

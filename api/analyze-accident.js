@@ -1,4 +1,4 @@
-const MODEL = process.env.GEMMA_MODEL || "gemma-4-26b-a4b-it";
+const ANALYSIS_MODEL = process.env.ANALYSIS_MODEL || process.env.GEMMA_MODEL || "gemini-3.1-flash-lite";
 
 function cleanLine(value = "") {
   return String(value)
@@ -70,7 +70,7 @@ function parseMarkedResponse(text = "") {
 
   const summary = section(normalized, "SUMMARY");
   if (!summary) {
-    throw new Error("Gemma 4 응답에서 사고 개요를 찾지 못했습니다.");
+    throw new Error("Gemini AI 응답에서 사고 개요를 찾지 못했습니다.");
   }
 
   return {
@@ -97,7 +97,7 @@ function extractText(raw) {
 
 async function callGemma(apiKey, parts) {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(ANALYSIS_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -116,14 +116,14 @@ async function callGemma(apiKey, parts) {
 
   if (!response.ok) {
     const error = new Error(
-      raw?.error?.message || `Gemma API HTTP ${response.status}`
+      raw?.error?.message || `Gemini API HTTP ${response.status}`
     );
     error.status = response.status;
     throw error;
   }
 
   const text = extractText(raw);
-  if (!text) throw new Error("Gemma 4가 빈 응답을 반환했습니다.");
+  if (!text) throw new Error("Gemini AI가 빈 응답을 반환했습니다.");
   return text;
 }
 
@@ -224,7 +224,7 @@ ${String(educationUse || "안전교육")}
       const data = parseMarkedResponse(text);
       return res.status(200).json({
         ...data,
-        model: MODEL,
+        model: ANALYSIS_MODEL,
         parseMode: "markers"
       });
     } catch (firstError) {
@@ -243,7 +243,7 @@ ${String(text).slice(0, 14000)}
       const repaired = parseMarkedResponse(repairText);
       return res.status(200).json({
         ...repaired,
-        model: MODEL,
+        model: ANALYSIS_MODEL,
         parseMode: "markers-repaired"
       });
     }
