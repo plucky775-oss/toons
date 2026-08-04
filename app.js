@@ -221,7 +221,7 @@ $("#analyzeBtn").addEventListener("click",async ()=>{
     return;
   }
   $("#analyzeBtn").disabled = true;
-  $("#status").textContent = "Gemma 4가 사고자료를 분석하고 있습니다…";
+  $("#status").textContent = "Gemini AI가 사고자료를 분석하고 있습니다…";
   try{
     analysisData = await postJson("/api/analyze-accident",{
       files:sourceFilesData.map(({name,mimeType,data,kind},index)=>({
@@ -238,7 +238,7 @@ $("#analyzeBtn").addEventListener("click",async ()=>{
     $("#analysisSection").classList.remove("hidden");
     setStep(2);
     show($("#analysisSection"));
-    $("#status").textContent = `분석 완료 · ${analysisData.model || "Gemma 4"}`;
+    $("#status").textContent = `분석 완료 · ${analysisData.model || "Gemini AI"}`;
   }catch(error){
     $("#status").textContent = `분석 실패: ${error.message}`;
   }finally{

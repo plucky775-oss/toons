@@ -1,2 +1,7 @@
-JSON 파싱을 제거하고 고정 표식 방식으로 변경한 수정본입니다.
-api/analyze-accident.js와 app.js를 덮어쓴 뒤 Vercel에서 재배포하세요.
+Vercel 환경변수:
+GEMINI_API_KEY=기존 API 키
+ANALYSIS_MODEL=gemini-3.1-flash-lite
+IMAGE_MODEL=gemini-3.1-flash-lite-image
+
+기존 GEMMA_MODEL은 삭제 가능합니다.
+파일을 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
