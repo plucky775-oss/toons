@@ -1,71 +1,56 @@
-const IMAGE_MODEL = process.env.IMAGE_MODEL || "gemini-3.1-flash-lite-image";
+const IMAGE_MODEL = process.env.IMAGE_MODEL || "imagen-4.0-generate-001";
 
 function buildPrompt({ title, issue, articleTitle, tone, panel, index }) {
   return `
 Create panel ${index + 1} of a four-panel Korean social-issue webtoon.
 
-Shared visual identity:
-- clean and friendly Korean webtoon illustration
-- one consistent main character in every panel:
-  Korean office worker in their 30s, short dark hair, navy jacket, white shirt
-- simple rounded shapes, expressive face, crisp dark outlines
-- soft colors and uncluttered backgrounds
-- portrait comic panel, 3:4 aspect ratio
-- respectful, neutral, non-inflammatory visual treatment
-- no text, no Korean letters, no captions, no speech bubbles
-- no logos, news outlet marks, UI screenshots, or added watermark-like labels
+Visual consistency:
+- clean Korean webtoon illustration
+- same main character in every panel
+- Korean adult office worker in their 30s
+- short dark hair, navy jacket, white shirt
+- rounded facial features, expressive emotion
+- crisp dark outlines, soft colors
+- simple background, portrait 3:4 composition
+- no written text, no letters, no speech bubbles
+- no logos, UI screenshots, or news outlet branding
+- respectful and non-inflammatory portrayal
 - do not imitate a living artist or copyrighted character
 
-Comic title: ${String(title || "Social issue comic").slice(0, 120)}
+Comic title: ${String(title || "").slice(0, 120)}
 Article title: ${String(articleTitle || "").slice(0, 180)}
-Issue summary: ${String(issue || "").slice(0, 1000)}
+Issue summary: ${String(issue || "").slice(0, 800)}
 Tone: ${String(tone || "empathetic").slice(0, 40)}
-Panel description: ${String(panel?.caption || "").slice(0, 300)}
-Character emotion: ${String(panel?.mood || "").slice(0, 30)}
-Location cue: ${String(panel?.place || "").slice(0, 30)}
+Panel scene: ${String(panel?.caption || "").slice(0, 250)}
+Emotion: ${String(panel?.mood || "").slice(0, 30)}
+Location: ${String(panel?.place || "").slice(0, 30)}
 
-Show the panel's meaning visually. Return one image only.
+Return one image only.
 `;
 }
 
-function findImageBlock(raw) {
-  if (raw?.output_image?.data) {
-    return {
-      data: raw.output_image.data,
-      mimeType: raw.output_image.mime_type || "image/png"
-    };
-  }
+function extractImage(raw) {
+  const prediction = Array.isArray(raw?.predictions) ? raw.predictions[0] : null;
 
-  const steps = Array.isArray(raw?.steps) ? raw.steps : [];
-  for (let i = steps.length - 1; i >= 0; i--) {
-    const contents = Array.isArray(steps[i]?.content) ? steps[i].content : [];
-    for (let j = contents.length - 1; j >= 0; j--) {
-      const block = contents[j];
-      if (block?.type === "image" && block?.data) {
-        return {
-          data: block.data,
-          mimeType: block.mime_type || "image/png"
-        };
-      }
-    }
-  }
+  const data =
+    prediction?.bytesBase64Encoded ||
+    prediction?.image?.imageBytes ||
+    prediction?.imageBytes ||
+    raw?.generatedImages?.[0]?.image?.imageBytes ||
+    raw?.generated_images?.[0]?.image?.image_bytes;
 
-  const outputs = Array.isArray(raw?.outputs) ? raw.outputs : [];
-  for (const output of outputs) {
-    if (output?.type === "image" && output?.data) {
-      return {
-        data: output.data,
-        mimeType: output.mime_type || "image/png"
-      };
-    }
-  }
+  const mimeType =
+    prediction?.mimeType ||
+    prediction?.mime_type ||
+    prediction?.image?.mimeType ||
+    "image/png";
 
-  return null;
+  return data ? { data, mimeType } : null;
 }
 
 async function createImage(apiKey, prompt) {
   const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/interactions",
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(IMAGE_MODEL)}:predict`,
     {
       method: "POST",
       headers: {
@@ -73,13 +58,16 @@ async function createImage(apiKey, prompt) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: IMAGE_MODEL,
-        input: [{ type: "text", text: prompt }],
-        response_format: {
-          type: "image",
-          mime_type: "image/png",
-          aspect_ratio: "3:4",
-          image_size: "1024px"
+        instances: [
+          {
+            prompt
+          }
+        ],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: "3:4",
+          personGeneration: "allow_adult",
+          imageSize: "1K"
         }
       })
     }
@@ -88,15 +76,21 @@ async function createImage(apiKey, prompt) {
   const raw = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const error = new Error(raw?.error?.message || `Image API HTTP ${response.status}`);
+    const error = new Error(
+      raw?.error?.message || `Imagen API HTTP ${response.status}`
+    );
     error.status = response.status;
     throw error;
   }
 
-  const image = findImageBlock(raw);
+  const image = extractImage(raw);
+
   if (!image?.data) {
-    console.error("Unexpected image response:", JSON.stringify(raw).slice(0, 3000));
-    throw new Error("Google AI 응답에서 이미지 데이터를 찾지 못했습니다.");
+    console.error(
+      "Unexpected Imagen response:",
+      JSON.stringify(raw).slice(0, 3000)
+    );
+    throw new Error("Imagen 응답에서 이미지 데이터를 찾지 못했습니다.");
   }
 
   return `data:${image.mimeType};base64,${image.data}`;
@@ -110,33 +104,36 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+
   if (!apiKey) {
     return res.status(503).json({
-      error: "Vercel 환경변수 GEMINI_API_KEY가 설정되지 않았습니다."
+      error: "Vercel 환경변수 GEMINI_API_KEY가 없습니다."
     });
   }
 
   const { title, issue, articleTitle, tone, panels } = req.body || {};
+
   if (!Array.isArray(panels) || panels.length !== 4) {
-    return res.status(400).json({ error: "4개의 패널 정보가 필요합니다." });
+    return res.status(400).json({
+      error: "4개의 패널 정보가 필요합니다."
+    });
   }
 
   try {
     const images = [];
+
+    // 프로젝트의 요청 제한에 덜 걸리도록 순차 생성
     for (let index = 0; index < 4; index++) {
-      images.push(
-        await createImage(
-          apiKey,
-          buildPrompt({
-            title,
-            issue,
-            articleTitle,
-            tone,
-            panel: panels[index],
-            index
-          })
-        )
-      );
+      const prompt = buildPrompt({
+        title,
+        issue,
+        articleTitle,
+        tone,
+        panel: panels[index],
+        index
+      });
+
+      images.push(await createImage(apiKey, prompt));
     }
 
     return res.status(200).json({
@@ -145,9 +142,10 @@ export default async function handler(req, res) {
       count: images.length
     });
   } catch (error) {
-    console.error("Google image generation failed:", error);
+    console.error("Imagen generation failed:", error);
+
     return res.status(error.status || 502).json({
-      error: error.message || "이미지 생성 실패",
+      error: error.message || "Imagen 이미지 생성 실패",
       model: IMAGE_MODEL
     });
   }
