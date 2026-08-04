@@ -86,3 +86,19 @@ ANALYSIS_MODEL=gemini-2.5-flash-lite
 1. Vercel의 `ANALYSIS_MODEL`
 2. `gemini-2.5-flash-lite`
 3. `gemini-2.5-flash`
+
+
+## 이미지 API v1 수정
+
+이미지 생성 요청을 `v1beta`에서 공식 REST 예시와 같은 `v1`로 변경했습니다.
+
+자동 시도 순서:
+
+1. Vercel `IMAGE_MODEL`
+2. `gemini-3.1-flash-lite-image`
+3. `gemini-3.1-flash-image`
+4. `gemini-2.5-flash-image`
+
+`gemini-2.5-flash-image`는 참고 이미지 입력을 최대 3장으로 제한하여 전달합니다.
+모델이 존재하지만 결제나 할당량이 없는 경우에는 자동 전환으로 해결되지 않으며,
+Google AI Studio 프로젝트의 결제 및 Rate Limits를 확인해야 합니다.
