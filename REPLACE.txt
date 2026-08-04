@@ -1,6 +1,2 @@
-보고서와 확인자료에 없는 시설·장비·인력을 그림에 추가하지 않도록 수정했습니다.
-핵심 교체 파일:
-- api/create-education.js
-- api/generate-safety-comic.js
-
-덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
+사실적 사고 표현, 생성 후 자동검증·1회 재생성, iPhone/iPad PNG 저장 수정본입니다.
+모든 파일을 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.

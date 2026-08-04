@@ -392,7 +392,11 @@ $("#generateImageBtn").addEventListener("click",async ()=>{
       injuryLevel:$("#injuryLevel").value
     });
     renderResult(educationData,imageResult);
-    $("#imageStatus").textContent = `완성 · ${imageResult.model || "Nano Banana 2 Lite"}`;
+    const verificationText = imageResult?.verification?.pass
+      ? (imageResult.regenerated ? " · 오류 보정 후 검증 통과" : " · 자동 검증 통과")
+      : (imageResult?.verification?.skipped ? " · 자동 검증 미완료" : " · 검증 확인 필요");
+    $("#imageStatus").textContent =
+      `완성 · ${imageResult.model || "Nano Banana"}${verificationText}`;
   }catch(error){
     $("#imageStatus").textContent = `그림 생성 실패: ${error.message}`;
     renderResult(educationData,null);
@@ -401,12 +405,94 @@ $("#generateImageBtn").addEventListener("click",async ()=>{
   }
 });
 
-$("#downloadBtn").addEventListener("click",async ()=>{
-  const canvas = await html2canvas($("#exportArea"),{scale:2,backgroundColor:"#ffffff"});
-  const link = document.createElement("a");
-  link.download = `안전사고_교육자료_${new Date().toISOString().slice(0,10)}.png`;
-  link.href = canvas.toDataURL("image/png");
-  link.click();
-});
+function canvasToBlob(canvas){
+  return new Promise((resolve,reject)=>{
+    canvas.toBlob(blob=>{
+      if(blob) resolve(blob);
+      else reject(new Error("PNG 파일 생성에 실패했습니다."));
+    },"image/png",1);
+  });
+}
+
+function sanitizeFileName(name="안전사고_교육자료"){
+  return String(name)
+    .replace(/[\\/:*?"<>|]/g,"_")
+    .replace(/\s+/g,"_")
+    .slice(0,80);
+}
+
+async function savePngFile(){
+  const button = $("#downloadBtn");
+  const status = $("#saveStatus");
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "PNG 생성 중…";
+  if(status) status.textContent = "교육자료를 이미지로 변환하고 있습니다.";
+
+  try{
+    const target = $("#exportArea");
+    if(!target) throw new Error("저장할 교육자료 영역을 찾지 못했습니다.");
+    if(document.fonts?.ready) await document.fonts.ready;
+
+    const image = $("#comicImage");
+    if(image && !image.classList.contains("hidden") && !image.complete){
+      await new Promise((resolve,reject)=>{
+        image.addEventListener("load",resolve,{once:true});
+        image.addEventListener("error",()=>reject(new Error("만화 이미지를 불러오지 못했습니다.")),{once:true});
+      });
+    }
+
+    const canvas = await html2canvas(target,{
+      scale:2,
+      backgroundColor:"#ffffff",
+      useCORS:true,
+      allowTaint:false,
+      logging:false,
+      windowWidth:target.scrollWidth,
+      windowHeight:target.scrollHeight
+    });
+
+    const blob = await canvasToBlob(canvas);
+    const title = sanitizeFileName($("#materialTitle")?.textContent || "안전사고_교육자료");
+    const fileName = `${title}_${new Date().toISOString().slice(0,10)}.png`;
+    const file = new File([blob],fileName,{type:"image/png"});
+
+    if(navigator.canShare?.({files:[file]}) && navigator.share){
+      if(status) status.textContent = "공유 화면에서 ‘이미지 저장’ 또는 ‘파일에 저장’을 선택하세요.";
+      await navigator.share({files:[file],title:"안전사고 교육자료",text:"생성된 안전사고 교육자료 PNG입니다."});
+      if(status) status.textContent = "PNG 공유 또는 저장을 완료했습니다.";
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(()=>{
+      if(/iPad|iPhone|iPod/.test(navigator.userAgent)) window.open(url,"_blank","noopener");
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+    },300);
+
+    if(status) status.textContent = "PNG 저장을 요청했습니다.";
+  }catch(error){
+    if(error?.name === "AbortError"){
+      if(status) status.textContent = "저장을 취소했습니다.";
+    }else{
+      console.error("PNG save failed:",error);
+      if(status) status.textContent = `PNG 저장 실패: ${error.message}`;
+      alert(`PNG 저장 실패: ${error.message}`);
+    }
+  }finally{
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
+$("#downloadBtn").addEventListener("click",savePngFile);
 
 $("#restartBtn").addEventListener("click",()=>location.reload());

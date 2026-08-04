@@ -134,3 +134,17 @@ textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba
   .speech-bubble{left:5%;right:5%;top:18%;padding:6px 8px}
   .education-strip{left:4px;right:4px;bottom:4px;padding:5px 6px}
 }
+
+/* AI가 실수로 생성한 글자를 앱 레이어가 확실히 가립니다. */
+.overlay-panel::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:15%;
+  z-index:2;background:rgba(255,255,255,.98);pointer-events:none
+}
+.overlay-panel::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:11%;
+  z-index:2;background:rgba(15,23,42,.96);pointer-events:none
+}
+.panel-title,.cut-badge,.speech-bubble,.education-strip{z-index:4}
+
+.save-status{display:inline-flex;align-items:center;min-height:38px;color:#475569;font-size:13px;font-weight:800}
+@media(max-width:620px){.result-head .actions{width:100%}.result-head .actions button{flex:1}.save-status{width:100%;justify-content:center}}
