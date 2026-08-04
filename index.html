@@ -21,9 +21,17 @@
 
     <section class="panel controls">
       <label>
-        사회적 이슈
-        <textarea id="issue" maxlength="180" placeholder="예: 직장 단톡방에서 퇴근 후에도 업무 지시가 계속되는 문제"></textarea>
+        기사 링크 또는 사회적 이슈
+        <textarea id="issue" maxlength="500" placeholder="기사 URL을 붙여넣거나 사회적 이슈를 직접 입력하세요.&#10;예: https://news.example.com/article/123"></textarea>
       </label>
+
+      <div class="article-tools">
+        <button id="analyzeLinkBtn" type="button">기사 링크 읽기</button>
+        <div>
+          <strong id="articleTitle">기사 미분석</strong>
+          <small id="articleSummary">링크를 붙이면 제목과 핵심 내용을 먼저 확인합니다.</small>
+        </div>
+      </div>
 
       <div class="grid">
         <label>분위기
@@ -52,12 +60,21 @@
         </label>
       </div>
 
-      <div class="mode-row">
-        <label class="switch-label">
-          <input id="aiMode" type="checkbox" checked />
-          <span>Gemma 4 대본 사용</span>
-        </label>
-        <small>Gemma 4 호출 실패 시 자동으로 오프라인 대본으로 전환됩니다.</small>
+      <div class="mode-options">
+        <div class="mode-row">
+          <label class="switch-label">
+            <input id="aiMode" type="checkbox" checked />
+            <span>Gemma 4 대본 사용</span>
+          </label>
+          <small>실패 시 오프라인 대본으로 자동 전환됩니다.</small>
+        </div>
+        <div class="mode-row">
+          <label class="switch-label">
+            <input id="imageAiMode" type="checkbox" checked />
+            <span>Google AI Studio 이미지 생성</span>
+          </label>
+          <small>Gemini 3.1 Flash Lite Image · 실패 시 무료 SVG 그림 사용</small>
+        </div>
       </div>
 
       <button id="generateBtn" class="primary">4컷 만화 만들기</button>

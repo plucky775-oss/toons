@@ -1,4 +1,14 @@
 const $ = (s) => document.querySelector(s);
+let articleContext = null;
+
+function looksLikeUrl(value=""){
+  try{
+    const url = new URL(value.trim());
+    return url.protocol === "https:" || url.protocol === "http:";
+  }catch{
+    return false;
+  }
+}
 
 const palettes = [
   { shirt:"#5b8def", hair:"#2b2118", bg:"#dff3ff" },
@@ -49,6 +59,34 @@ async function aiScript(payload){
   return response.json();
 }
 
+async function analyzeArticle(url){
+  const response = await fetch("/api/article",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({url})
+  });
+  const result = await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(result?.error || "기사 읽기 실패");
+  return result;
+}
+
+async function generatePanelImages(script, payload){
+  const response = await fetch("/api/generate-images",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      title:script.title,
+      issue:payload.issue,
+      articleTitle:payload.articleTitle,
+      tone:payload.tone,
+      panels:script.panels
+    })
+  });
+  const result = await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(result?.error || "이미지 생성 실패");
+  return result;
+}
+
 function characterSvg(index, mood, place){
   const p = palettes[index % palettes.length];
   const mouths = {
@@ -93,7 +131,12 @@ function renderComic(data){
   (data.panels || []).slice(0,4).forEach((panel, i) => {
     const node = $("#panelTemplate").content.cloneNode(true);
     node.querySelector(".panel-number").textContent = i + 1;
-    node.querySelector(".scene").innerHTML = characterSvg(i, panel.mood, panel.place);
+    const scene = node.querySelector(".scene");
+    if(panel.imageDataUrl){
+      scene.innerHTML = `<img src="${panel.imageDataUrl}" alt="${escapeHtml(panel.caption || `${i+1}컷 이미지`)}"><span class="image-credit">Google AI</span>`;
+    }else{
+      scene.innerHTML = characterSvg(i, panel.mood, panel.place);
+    }
     node.querySelector(".bubble").textContent = panel.dialogue || "";
     node.querySelector(".caption").textContent = panel.caption || "";
     comic.appendChild(node);
@@ -102,11 +145,50 @@ function renderComic(data){
   $("#resultSection").scrollIntoView({behavior:"smooth", block:"start"});
 }
 
+
+$("#analyzeLinkBtn").addEventListener("click", async ()=>{
+  const value = $("#issue").value.trim();
+  if(!looksLikeUrl(value)){
+    $("#status").textContent = "기사 URL을 입력해주세요.";
+    return;
+  }
+  $("#analyzeLinkBtn").disabled = true;
+  $("#status").textContent = "기사 내용을 읽고 있습니다…";
+  try{
+    articleContext = await analyzeArticle(value);
+    $("#articleTitle").textContent = articleContext.title || "제목 확인 완료";
+    $("#articleSummary").textContent = articleContext.summary || "기사 핵심 내용 확인 완료";
+    $("#status").textContent = "기사 분석이 완료됐습니다.";
+  }catch(error){
+    articleContext = null;
+    $("#articleTitle").textContent = "기사 읽기 실패";
+    $("#articleSummary").textContent = error.message;
+    $("#status").textContent = "기사 링크를 읽지 못했습니다. 직접 이슈를 입력해도 됩니다.";
+  }finally{
+    $("#analyzeLinkBtn").disabled = false;
+  }
+});
+
 $("#generateBtn").addEventListener("click", async () => {
-  const issue = $("#issue").value.trim();
-  if(!issue){ $("#status").textContent = "먼저 사회적 이슈를 입력해주세요."; return; }
+  const rawInput = $("#issue").value.trim();
+  if(!rawInput){ $("#status").textContent = "기사 링크나 사회적 이슈를 입력해주세요."; return; }
+
+  if(looksLikeUrl(rawInput) && (!articleContext || articleContext.url !== rawInput)){
+    $("#status").textContent = "기사 링크를 먼저 읽고 있습니다…";
+    try{
+      articleContext = await analyzeArticle(rawInput);
+      $("#articleTitle").textContent = articleContext.title || "제목 확인 완료";
+      $("#articleSummary").textContent = articleContext.summary || "기사 분석 완료";
+    }catch(error){
+      articleContext = null;
+    }
+  }
+
   const payload = {
-    issue,
+    issue: articleContext?.summary || rawInput,
+    sourceUrl: articleContext?.url || (looksLikeUrl(rawInput) ? rawInput : ""),
+    articleTitle: articleContext?.title || "",
+    articleText: articleContext?.text || "",
     tone:$("#tone").value,
     audience:$("#audience").value,
     ending:$("#ending").value
@@ -128,6 +210,21 @@ $("#generateBtn").addEventListener("click", async () => {
       data = offlineScript(payload.issue,payload.tone,payload.audience,payload.ending);
       $("#status").textContent = "오프라인 모드로 완성했습니다.";
     }
+
+    if($("#imageAiMode").checked){
+      $("#status").textContent = "Google AI Studio에서 4컷 그림을 생성하고 있습니다…";
+      try{
+        const imageResult = await generatePanelImages(data,payload);
+        data.panels = data.panels.map((panel,index)=>({
+          ...panel,
+          imageDataUrl:imageResult.images?.[index] || null
+        }));
+        $("#status").textContent = `완성했습니다. 대본: ${data.model || "Gemma 4"} · 그림: ${imageResult.model || "Google AI"}`;
+      }catch(error){
+        $("#status").textContent = "이미지 API를 사용할 수 없어 무료 SVG 그림으로 완성했습니다.";
+      }
+    }
+
     renderComic(data);
   }finally{
     $("#generateBtn").disabled = false;

@@ -70,3 +70,38 @@ GEMMA_MODEL=gemma-4-31b-it
 
 대본 생성에는 속도와 비용을 고려해 `gemma-4-26b-a4b-it`를 기본값으로 사용합니다.
 호출 실패, 키 미설정, 무료 한도 초과 시 앱은 자동으로 오프라인 대본 모드로 전환됩니다.
+
+
+## 기사 링크 → 4컷 만화
+
+기사 URL을 입력하면 `/api/article.js`가 공개 HTML 기사의 제목과 본문을 읽습니다.
+읽은 기사 내용은 Gemma 4 대본 생성 요청에 함께 전달됩니다.
+
+지원:
+- 공개 HTTP/HTTPS 기사
+- 일반 HTML 뉴스 페이지
+- 기사 제목, 설명, 본문 텍스트 추출
+
+제한:
+- 로그인·구독·앱 전용 기사
+- 로봇 차단 사이트
+- 자바스크립트로 본문을 뒤늦게 그리는 사이트
+- PDF 기사
+
+## Google AI Studio 이미지 생성
+
+기본 이미지 모델:
+
+```text
+gemini-3.1-flash-lite-image
+```
+
+환경변수:
+
+```text
+GEMINI_API_KEY=Google AI Studio API 키
+GEMMA_MODEL=gemma-4-26b-a4b-it
+IMAGE_MODEL=gemini-3.1-flash-lite-image
+```
+
+이미지 호출이 실패하거나 결제가 설정되지 않으면 앱 내장 SVG 그림으로 자동 전환됩니다.
