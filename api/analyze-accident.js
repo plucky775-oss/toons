@@ -1,187 +1,91 @@
 const MODEL = process.env.GEMMA_MODEL || "gemma-4-26b-a4b-it";
 
-const RESPONSE_SCHEMA = {
-  type: "OBJECT",
-  required: [
-    "summary",
-    "workDescription",
-    "sequence",
-    "confirmedFacts",
-    "sourceObservations",
-    "causeCandidates",
-    "hazards",
-    "questions",
-    "sensitiveDetails"
-  ],
-  properties: {
-    summary: { type: "STRING" },
-    workDescription: { type: "STRING" },
-    sequence: {
-      type: "ARRAY",
-      items: { type: "STRING" }
-    },
-    confirmedFacts: {
-      type: "ARRAY",
-      items: { type: "STRING" }
-    },
-    sourceObservations: {
-      type: "ARRAY",
-      items: {
-        type: "OBJECT",
-        required: ["source", "observation", "confidence"],
-        properties: {
-          source: { type: "STRING" },
-          observation: { type: "STRING" },
-          confidence: {
-            type: "STRING",
-            enum: ["높음", "중간"]
-          }
-        }
-      }
-    },
-    causeCandidates: {
-      type: "ARRAY",
-      items: {
-        type: "OBJECT",
-        required: ["name", "category", "evidence"],
-        properties: {
-          name: { type: "STRING" },
-          category: {
-            type: "STRING",
-            enum: ["관리적", "기술적", "인적", "환경적"]
-          },
-          evidence: { type: "STRING" }
-        }
-      }
-    },
-    hazards: {
-      type: "ARRAY",
-      items: { type: "STRING" }
-    },
-    questions: {
-      type: "ARRAY",
-      items: {
-        type: "OBJECT",
-        required: ["id", "question", "options"],
-        properties: {
-          id: { type: "STRING" },
-          question: { type: "STRING" },
-          options: {
-            type: "ARRAY",
-            items: { type: "STRING" }
-          }
-        }
-      }
-    },
-    sensitiveDetails: {
-      type: "ARRAY",
-      items: { type: "STRING" }
-    }
-  }
-};
-
-function stripCodeFences(text = "") {
-  return String(text)
-    .replace(/^\uFEFF/, "")
-    .replace(/```json/gi, "")
-    .replace(/```javascript/gi, "")
-    .replace(/```/g, "")
+function cleanLine(value = "") {
+  return String(value)
+    .replace(/^[\s\-•*○□☑✅]+/, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
-function extractBalancedObject(text = "") {
-  const cleaned = stripCodeFences(text);
-  const first = cleaned.indexOf("{");
-  if (first < 0) throw new Error("JSON 객체 시작 문자를 찾지 못했습니다.");
-
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-
-  for (let i = first; i < cleaned.length; i++) {
-    const char = cleaned[i];
-
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (char === "\\") {
-        escaped = true;
-      } else if (char === '"') {
-        inString = false;
-      }
-      continue;
-    }
-
-    if (char === '"') {
-      inString = true;
-      continue;
-    }
-
-    if (char === "{") depth++;
-    if (char === "}") {
-      depth--;
-      if (depth === 0) return cleaned.slice(first, i + 1);
-    }
-  }
-
-  throw new Error("완성된 JSON 객체를 찾지 못했습니다.");
+function splitItems(text = "") {
+  return String(text)
+    .split(/\r?\n/)
+    .map(cleanLine)
+    .filter(Boolean);
 }
 
-function normalizeJsonText(text = "") {
-  return extractBalancedObject(text)
-    .replace(/,\s*([}\]])/g, "$1")
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+function section(text, name) {
+  const pattern = new RegExp(
+    `\\[${name}\\]\\s*([\\s\\S]*?)(?=\\n\\[[A-Z_]+\\]|$)`,
+    "i"
+  );
+  return text.match(pattern)?.[1]?.trim() || "";
 }
 
-function parseJson(text = "") {
-  const attempts = [
-    () => JSON.parse(stripCodeFences(text)),
-    () => JSON.parse(extractBalancedObject(text)),
-    () => JSON.parse(normalizeJsonText(text))
-  ];
-
-  let lastError;
-  for (const attempt of attempts) {
-    try {
-      return attempt();
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError || new Error("JSON 응답을 해석하지 못했습니다.");
+function parseSourceObservations(text = "") {
+  return splitItems(text).map(line => {
+    const parts = line.split("|").map(v => v.trim());
+    return {
+      source: parts[0] || "입력 자료",
+      observation: parts[1] || parts[0] || "",
+      confidence: parts[2] === "중간" ? "중간" : "높음"
+    };
+  });
 }
 
-function validateAnalysis(data) {
-  if (!data || typeof data !== "object") {
-    throw new Error("분석 결과가 객체 형식이 아닙니다.");
+function parseCauses(text = "") {
+  const allowed = new Set(["관리적", "기술적", "인적", "환경적"]);
+  return splitItems(text).map(line => {
+    const parts = line.split("|").map(v => v.trim());
+    return {
+      name: parts[0] || "사고 원인",
+      category: allowed.has(parts[1]) ? parts[1] : "관리적",
+      evidence: parts[2] || "입력 자료에서 확인 필요"
+    };
+  });
+}
+
+function parseQuestions(text = "") {
+  return splitItems(text).slice(0, 4).map((line, index) => {
+    const parts = line.split("|").map(v => v.trim());
+    const options = (parts[1] || "확인됨/확인되지 않음/모름")
+      .split("/")
+      .map(cleanLine)
+      .filter(Boolean);
+
+    return {
+      id: `q${index + 1}`,
+      question: parts[0] || "확인이 필요한 내용",
+      options: options.length ? options.slice(0, 6) : ["확인됨", "확인되지 않음", "모름"]
+    };
+  });
+}
+
+function parseMarkedResponse(text = "") {
+  const normalized = String(text)
+    .replace(/```[\w-]*/g, "")
+    .replace(/```/g, "")
+    .replace(/\r/g, "")
+    .trim();
+
+  const summary = section(normalized, "SUMMARY");
+  if (!summary) {
+    throw new Error("Gemma 4 응답에서 사고 개요를 찾지 못했습니다.");
   }
 
-  const arrayFields = [
-    "sequence",
-    "confirmedFacts",
-    "sourceObservations",
-    "causeCandidates",
-    "hazards",
-    "questions",
-    "sensitiveDetails"
-  ];
-
-  for (const field of arrayFields) {
-    if (!Array.isArray(data[field])) data[field] = [];
-  }
-
-  data.summary = String(data.summary || "사고 개요를 확인하지 못했습니다.");
-  data.workDescription = String(data.workDescription || "");
-
-  data.questions = data.questions.slice(0, 4).map((question, index) => ({
-    id: String(question?.id || `q${index + 1}`),
-    question: String(question?.question || "확인이 필요한 내용"),
-    options: Array.isArray(question?.options) && question.options.length
-      ? question.options.map(String).slice(0, 6)
-      : ["확인됨", "확인되지 않음", "모름"]
-  }));
-
-  return data;
+  return {
+    summary: cleanLine(summary),
+    workDescription: cleanLine(section(normalized, "WORK")),
+    sequence: splitItems(section(normalized, "SEQUENCE")),
+    confirmedFacts: splitItems(section(normalized, "CONFIRMED_FACTS")),
+    sourceObservations: parseSourceObservations(
+      section(normalized, "SOURCE_OBSERVATIONS")
+    ),
+    causeCandidates: parseCauses(section(normalized, "CAUSES")),
+    hazards: splitItems(section(normalized, "HAZARDS")),
+    questions: parseQuestions(section(normalized, "QUESTIONS")),
+    sensitiveDetails: splitItems(section(normalized, "SENSITIVE"))
+  };
 }
 
 function extractText(raw) {
@@ -191,17 +95,7 @@ function extractText(raw) {
     .trim() || "";
 }
 
-async function callGemma(apiKey, parts, useSchema = true) {
-  const generationConfig = {
-    temperature: 0.15,
-    maxOutputTokens: 3200,
-    responseMimeType: "application/json"
-  };
-
-  if (useSchema) {
-    generationConfig.responseSchema = RESPONSE_SCHEMA;
-  }
-
+async function callGemma(apiKey, parts) {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
@@ -209,7 +103,11 @@ async function callGemma(apiKey, parts, useSchema = true) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts }],
-        generationConfig
+        generationConfig: {
+          temperature: 0.1,
+          topP: 0.8,
+          maxOutputTokens: 2600
+        }
       })
     }
   );
@@ -226,34 +124,7 @@ async function callGemma(apiKey, parts, useSchema = true) {
 
   const text = extractText(raw);
   if (!text) throw new Error("Gemma 4가 빈 응답을 반환했습니다.");
-
   return text;
-}
-
-async function repairJson(apiKey, brokenText) {
-  const repairPrompt = `
-아래 내용은 산업안전 사고 분석 결과이지만 JSON 형식이 깨져 있습니다.
-
-해야 할 일:
-- 내용을 새로 분석하거나 추측하지 말 것
-- 기존 의미를 유지할 것
-- 누락된 필드는 빈 문자열 또는 빈 배열로 채울 것
-- 반드시 유효한 JSON 객체 하나만 출력할 것
-- 마크다운 코드블록과 설명 문장은 출력하지 말 것
-
-필수 필드:
-summary, workDescription, sequence, confirmedFacts, sourceObservations,
-causeCandidates, hazards, questions, sensitiveDetails
-
-깨진 응답:
-${String(brokenText).slice(0, 14000)}
-`;
-
-  return callGemma(
-    apiKey,
-    [{ text: repairPrompt }],
-    true
-  );
 }
 
 export default async function handler(req, res) {
@@ -269,8 +140,8 @@ export default async function handler(req, res) {
   }
 
   const { files, extraContext, educationUse } = req.body || {};
-  const parts = [];
   const safeFiles = Array.isArray(files) ? files.slice(0, 8) : [];
+  const parts = [];
 
   for (const file of safeFiles) {
     if (file?.data && file?.mimeType) {
@@ -290,78 +161,94 @@ export default async function handler(req, res) {
     text: `
 너는 산업안전 사고조사 자료를 교육용으로 구조화하는 분석가다.
 
-입력된 여러 자료를 순서대로 함께 비교하여 분석하라.
-보고서 사진, 현장사진, 작업 전후 사진 사이의 공통점과 차이를 확인하되,
-문서에 명시된 사실과 사진에서 직접 관찰되는 사실을 구분하라.
+입력된 자료와 보충 설명을 함께 분석하라.
+자료가 없고 보충 설명만 있으면 그 문장에 적힌 사실만 사용하라.
 
 절대 지켜야 할 원칙:
 - 자료에 없는 사람, 장비, 행동, 원인, 사고결과를 추가하지 않는다.
-- "사람이 넘어짐", "자재가 넘어짐", "전주가 넘어짐"처럼 주어를 바꾸지 않는다.
+- 사람, 자재, 전주 등 행동의 주어를 임의로 바꾸지 않는다.
 - 사진만으로 확정할 수 없는 내용은 확인된 사실로 쓰지 않는다.
-- 문장이 모호하면 질문으로 만든다.
-- 질문은 만화의 사실 정확도에 꼭 필요한 것만 0~4개 작성한다.
-- 사고 원인은 자료상 근거가 있는 후보만 제시한다.
-- 개인정보와 민감정보는 sensitiveDetails에 분류한다.
-- JSON 이외의 문장을 출력하지 않는다.
+- 불명확한 내용은 QUESTIONS에 넣는다.
+- 사고 원인은 입력 내용에서 근거가 있는 후보만 제시한다.
+- 법령 조문 번호를 만들지 않는다.
+- 아래 표식과 순서를 정확히 지킨다.
+- JSON, 마크다운 표, 코드블록을 사용하지 않는다.
 
 보충 설명:
 ${String(extraContext || "없음").slice(0, 2000)}
 
 교육 용도:
 ${String(educationUse || "안전교육")}
+
+반드시 아래 형식으로만 출력:
+
+[SUMMARY]
+사고 개요 2~4문장
+
+[WORK]
+작업 내용 한 문장
+
+[SEQUENCE]
+- 시간 순서 1
+- 시간 순서 2
+
+[CONFIRMED_FACTS]
+- 입력에서 직접 확인되는 사실
+
+[SOURCE_OBSERVATIONS]
+- 자료 번호 또는 파일명 | 직접 관찰되는 내용 | 높음
+- 자료 번호 또는 파일명 | 직접 관찰되는 내용 | 중간
+
+[CAUSES]
+- 원인명 | 관리적 | 입력 내용의 근거
+- 원인명 | 기술적 | 입력 내용의 근거
+카테고리는 관리적, 기술적, 인적, 환경적 중 하나만 사용
+
+[HAZARDS]
+- 위험요인
+
+[QUESTIONS]
+- 확인 질문 | 선택지1/선택지2/기타 또는 모름
+질문이 없으면 아무 항목도 쓰지 말 것
+
+[SENSITIVE]
+- 개인정보 또는 가려야 할 내용
+없으면 아무 항목도 쓰지 말 것
 `
   });
 
-  let firstText = "";
-
   try {
-    try {
-      firstText = await callGemma(apiKey, parts, true);
-    } catch (schemaError) {
-      // 일부 Gemma 배포 환경이 responseSchema를 거부할 경우 JSON MIME만으로 재시도.
-      if (schemaError.status === 400) {
-        firstText = await callGemma(apiKey, parts, false);
-      } else {
-        throw schemaError;
-      }
-    }
-
-    let parsed;
+    let text = await callGemma(apiKey, parts);
 
     try {
-      parsed = parseJson(firstText);
-    } catch {
-      const repairedText = await callGemma(
-        apiKey,
-        [{
-          text: `
-다음 응답을 의미 변경 없이 유효한 JSON 객체 하나로만 복구하라.
-설명과 코드블록은 쓰지 마라.
+      const data = parseMarkedResponse(text);
+      return res.status(200).json({
+        ...data,
+        model: MODEL,
+        parseMode: "markers"
+      });
+    } catch (firstError) {
+      // 한 번만 형식 교정 요청. 내용 재분석은 하지 않는다.
+      const repairText = await callGemma(apiKey, [{
+        text: `
+아래 응답의 내용은 변경하지 말고 표식 형식만 정확하게 고쳐라.
+JSON과 코드블록은 절대 사용하지 마라.
+반드시 [SUMMARY]부터 [SENSITIVE]까지의 표식을 사용하라.
 
-필수 필드:
-summary, workDescription, sequence, confirmedFacts, sourceObservations,
-causeCandidates, hazards, questions, sensitiveDetails
-
-원본:
-${String(firstText).slice(0, 14000)}
+원본 응답:
+${String(text).slice(0, 14000)}
 `
-        }],
-        true
-      );
-      parsed = parseJson(repairedText);
+      }]);
+
+      const repaired = parseMarkedResponse(repairText);
+      return res.status(200).json({
+        ...repaired,
+        model: MODEL,
+        parseMode: "markers-repaired"
+      });
     }
-
-    const data = validateAnalysis(parsed);
-
-    return res.status(200).json({
-      ...data,
-      model: MODEL,
-      jsonMode: true
-    });
   } catch (error) {
     console.error("Accident analysis failed:", error);
-    console.error("Raw model text:", firstText.slice(0, 3000));
-
     return res.status(error.status || 502).json({
       error: error.message || "사고 분석 실패"
     });
