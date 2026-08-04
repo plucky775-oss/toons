@@ -19,7 +19,7 @@ function imageModelCandidates() {
 
 function parseDataUrl(dataUrl = "") {
   const match = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) throw new Error("기존 만화 이미지 형식이 올바르지 않습니다.");
+  if (!match) throw new Error("수정할 컷 이미지 형식이 올바르지 않습니다.");
   return { mimeType: match[1], data: match[2] };
 }
 
@@ -39,48 +39,47 @@ function imageFromResponse(raw) {
 }
 
 function buildRevisionPrompt(education, revisionPanel, revisionNote) {
-  const panels = (education?.storyboard || [])
-    .map((panel, index) => `${index + 1}컷 장면: ${panel.scene}`)
-    .join("\n");
+  const panel = education?.storyboard?.[Number(revisionPanel) - 1] || {};
 
   return `
-Edit the provided existing 2x2 industrial safety comic.
+Edit the provided single industrial-safety comic panel.
 
-TARGET PANEL:
-Panel ${revisionPanel} only.
+THIS IMAGE IS PANEL ${revisionPanel} ONLY.
+Return one single square panel, not a 2x2 comic and not multiple panels.
+
+APPROVED PANEL FACTS:
+Title concept: ${panel.title || ""}
+Scene: ${panel.scene || ""}
+Safety point: ${panel.educationPoint || ""}
 
 USER REVISION REQUEST:
 ${revisionNote}
 
-APPROVED STORYBOARD:
-${panels}
-
-PANEL-LOCK EDITING RULES:
-- Edit panel ${revisionPanel} only.
-- Panels other than ${revisionPanel} are locked and must remain visually unchanged.
-- Preserve the exact content, composition, character pose, equipment placement,
-  background, lighting, and crop of the three locked panels.
-- Keep the same 2x2 panel structure and panel boundaries.
-- In panel ${revisionPanel}, correct only the requested visual errors.
-- Do not alter the title overlay areas or create any text.
-- Do not rewrite the accident facts or change the approved sequence.
-- The bucket truck boom must be one continuous mechanical chain from truck
-  turntable to bucket mounting point and bucket.
-- The boom must not connect to, penetrate, cross, or end at a worker's body.
-- Never show direct hand contact with a conductor unless explicitly stated
-  in the approved storyboard.
+STRICT EDITING RULES:
+- Correct only the user's requested visual problem.
+- Preserve the panel's existing worksite, character identity, clothing, vehicle,
+  bucket, boom type, poles, conductors, trees, road, weather, camera angle,
+  illustration style, lighting, and overall composition unless the correction
+  specifically requires changing one of them.
+- Do not change the approved accident facts or sequence.
+- A bucket-truck boom must remain one continuous mechanical chain:
+  truck turntable -> lower boom -> upper boom -> bucket mounting point -> bucket.
+- The boom must never connect to, penetrate, cross, or end at a worker's body.
+- Never show direct hand contact with a conductor unless explicitly confirmed.
 - Preserve the exact confirmed contact body part.
-- Do not add any object, facility, PPE, worker, guide, signaler, vehicle,
-  barrier, cone, sign, line hose, insulating cover, protective tube, or tool
-  unless explicitly present in the approved storyboard or source references.
+- Do not add any unconfirmed object, facility, PPE, worker, guide, signaler,
+  vehicle, barrier, cone, sign, line hose, insulating cover, protective tube,
+  blanket, guard, or tool.
 - Use realistic non-gory accident depiction: credible posture, electrical arc,
   shock reaction, and serious facial expression; no blood, exposed wounds,
   dismemberment, or gore.
 - Illustration only.
 - Absolutely no text, letters, numbers, pseudo-writing, speech bubbles,
-  captions, labels, signs, sound effects, watermarks, or logos.
+  captions, labels, signs, sound effects, borders, panel numbers, watermarks,
+  or logos.
+- Fill the full square canvas with the corrected illustration.
 
-Return one corrected image only.
+Return one corrected square image only.
 `;
 }
 
@@ -108,18 +107,21 @@ async function requestRevision(apiKey, model, parts) {
 
   const raw = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(raw?.error?.message || `Image revision API ${response.status}`);
+    const error = new Error(
+      raw?.error?.message || `Image revision API ${response.status}`
+    );
     error.status = response.status;
     throw error;
   }
 
   const image = imageFromResponse(raw);
-  if (!image) throw new Error("수정된 그림 데이터를 찾지 못했습니다.");
+  if (!image) throw new Error("수정된 컷 그림 데이터를 찾지 못했습니다.");
   return image;
 }
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store, max-age=0");
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -130,7 +132,7 @@ export default async function handler(req, res) {
   }
 
   const {
-    currentImageDataUrl,
+    currentPanelDataUrl,
     education,
     revisionPanel,
     revisionNote,
@@ -138,37 +140,65 @@ export default async function handler(req, res) {
   } = req.body || {};
 
   if (
-    !currentImageDataUrl ||
+    !currentPanelDataUrl ||
     !revisionNote ||
     !education?.storyboard ||
-    ![1,2,3,4].includes(Number(revisionPanel))
+    ![1, 2, 3, 4].includes(Number(revisionPanel))
   ) {
-    return res.status(400).json({ error: "수정할 그림, 스토리보드, 수정 지시가 필요합니다." });
+    return res.status(400).json({
+      error: "수정할 컷, 스토리보드, 컷 번호와 수정 지시가 필요합니다."
+    });
   }
 
-  const current = parseDataUrl(currentImageDataUrl);
+  const currentPanel = parseDataUrl(currentPanelDataUrl);
   const parts = [
-    { text: "Existing comic image to edit:" },
-    { inlineData: { mimeType: current.mimeType, data: current.data } }
+    { text: `Existing panel ${revisionPanel} to edit:` },
+    {
+      inlineData: {
+        mimeType: currentPanel.mimeType,
+        data: currentPanel.data
+      }
+    }
   ];
 
-  for (const image of Array.isArray(sourceImages) ? sourceImages.slice(0, 3) : []) {
-    if (image?.data && image?.mimeType) {
-      parts.push({ text: `Original source reference ${image.order || ""}: ${image.name || ""}` });
-      parts.push({ inlineData: { mimeType: image.mimeType, data: image.data } });
+  for (
+    const reference of Array.isArray(sourceImages)
+      ? sourceImages.slice(0, 3)
+      : []
+  ) {
+    if (reference?.data && reference?.mimeType) {
+      parts.push({
+        text: `Original source reference ${reference.order || ""}: ${
+          reference.name || ""
+        }`
+      });
+      parts.push({
+        inlineData: {
+          mimeType: reference.mimeType,
+          data: reference.data
+        }
+      });
     }
   }
 
-  parts.push({ text: buildRevisionPrompt(education, Number(revisionPanel), revisionNote) });
+  parts.push({
+    text: buildRevisionPrompt(
+      education,
+      Number(revisionPanel),
+      revisionNote
+    )
+  });
 
   let lastError;
+
   for (const model of imageModelCandidates()) {
     try {
       const image = await requestRevision(apiKey, model, parts);
+
       return res.status(200).json({
-        imageDataUrl: `data:${image.mimeType};base64,${image.data}`,
-        model,
-        verification: { pass: true }
+        panelImageDataUrl: `data:${image.mimeType};base64,${image.data}`,
+        panel: Number(revisionPanel),
+        model
       });
     } catch (error) {
       lastError = error;
@@ -177,6 +207,6 @@ export default async function handler(req, res) {
   }
 
   return res.status(lastError?.status || 502).json({
-    error: lastError?.message || "그림 수정에 실패했습니다."
+    error: lastError?.message || "선택한 컷 수정에 실패했습니다."
   });
 }
