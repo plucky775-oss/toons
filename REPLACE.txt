@@ -1,3 +1,2 @@
-JSON 분석 오류 수정 파일입니다.
-프로젝트에 파일을 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
-가장 중요한 교체 파일은 api/analyze-accident.js 입니다.
+JSON 파싱을 제거하고 고정 표식 방식으로 변경한 수정본입니다.
+api/analyze-accident.js와 app.js를 덮어쓴 뒤 Vercel에서 재배포하세요.

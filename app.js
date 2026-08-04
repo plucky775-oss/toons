@@ -240,7 +240,7 @@ $("#analyzeBtn").addEventListener("click",async ()=>{
     show($("#analysisSection"));
     $("#status").textContent = `분석 완료 · ${analysisData.model || "Gemma 4"}`;
   }catch(error){
-    $("#status").textContent = `분석 실패: ${error.message} · 잠시 후 다시 시도하거나 자료 수를 줄여보세요.`;
+    $("#status").textContent = `분석 실패: ${error.message}`;
   }finally{
     $("#analyzeBtn").disabled = false;
   }
