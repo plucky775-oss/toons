@@ -379,7 +379,7 @@ $("#generateImageBtn").addEventListener("click",async ()=>{
   const storyboard = collectEditedStoryboard();
   educationData.storyboard = storyboard;
   $("#generateImageBtn").disabled = true;
-  $("#imageStatus").textContent = "Nano Banana 2 Lite가 4컷 만화를 생성하고 있습니다…";
+  $("#imageStatus").textContent = "AI가 4컷 만화를 생성하고 있습니다…";
   try{
     const imageResult = await postJson("/api/generate-safety-comic",{
       sourceImages:sourceFilesData
@@ -393,8 +393,7 @@ $("#generateImageBtn").addEventListener("click",async ()=>{
     const verificationText = imageResult?.verification?.pass
       ? (imageResult.regenerated ? " · 오류 보정 후 검증 통과" : " · 자동 검증 통과")
       : (imageResult?.verification?.skipped ? " · 자동 검증 미완료" : " · 검증 확인 필요");
-    $("#imageStatus").textContent =
-      `완성 · ${imageResult.model || "Nano Banana"}${verificationText}`;
+    $("#imageStatus").textContent = `그림 생성 완료${verificationText}`;
   }catch(error){
     $("#imageStatus").textContent = `그림 생성 실패: ${error.message}`;
     renderResult(educationData,null);
@@ -423,46 +422,55 @@ async function savePngFile(){
   const button = $("#downloadBtn");
   const status = $("#saveStatus");
   const originalText = button.textContent;
+
   button.disabled = true;
-  button.textContent = "PNG 생성 중…";
-  if(status) status.textContent = "교육자료를 이미지로 변환하고 있습니다.";
+  button.textContent = "PNG 준비 중…";
+  if(status) status.textContent = "4컷 그림만 저장 파일로 준비하고 있습니다.";
 
   try{
-    const target = $("#exportArea");
-    if(!target) throw new Error("저장할 교육자료 영역을 찾지 못했습니다.");
-    if(document.fonts?.ready) await document.fonts.ready;
-
-    const image = $("#comicImage");
-    if(image && !image.classList.contains("hidden") && !image.complete){
-      await new Promise((resolve,reject)=>{
-        image.addEventListener("load",resolve,{once:true});
-        image.addEventListener("error",()=>reject(new Error("만화 이미지를 불러오지 못했습니다.")),{once:true});
-      });
+    if(!currentComicImageDataUrl){
+      throw new Error("저장할 4컷 그림이 없습니다.");
     }
 
-    const canvas = await html2canvas(target,{
-      scale:2,
-      backgroundColor:"#ffffff",
-      useCORS:true,
-      allowTaint:false,
-      logging:false,
-      windowWidth:target.scrollWidth,
-      windowHeight:target.scrollHeight
-    });
+    const response = await fetch(currentComicImageDataUrl);
+    if(!response.ok){
+      throw new Error("4컷 그림 데이터를 불러오지 못했습니다.");
+    }
 
-    const blob = await canvasToBlob(canvas);
-    const title = sanitizeFileName($("#materialTitle")?.textContent || "안전사고_교육자료");
-    const fileName = `${title}_${new Date().toISOString().slice(0,10)}.png`;
-    const file = new File([blob],fileName,{type:"image/png"});
+    const sourceBlob = await response.blob();
+    const pngBlob = sourceBlob.type === "image/png"
+      ? sourceBlob
+      : await (async ()=>{
+          const image = await loadDataUrlImage(currentComicImageDataUrl);
+          const canvas = document.createElement("canvas");
+          canvas.width = image.naturalWidth;
+          canvas.height = image.naturalHeight;
+          canvas.getContext("2d").drawImage(image,0,0);
+          return canvasToBlob(canvas);
+        })();
+
+    const title = sanitizeFileName(
+      $("#materialTitle")?.textContent || "안전사고_4컷만화"
+    );
+    const fileName =
+      `${title}_그림만_${new Date().toISOString().slice(0,10)}.png`;
+    const file = new File([pngBlob],fileName,{type:"image/png"});
 
     if(navigator.canShare?.({files:[file]}) && navigator.share){
-      if(status) status.textContent = "공유 화면에서 ‘이미지 저장’ 또는 ‘파일에 저장’을 선택하세요.";
-      await navigator.share({files:[file],title:"안전사고 교육자료",text:"생성된 안전사고 교육자료 PNG입니다."});
-      if(status) status.textContent = "PNG 공유 또는 저장을 완료했습니다.";
+      if(status){
+        status.textContent =
+          "공유 화면에서 ‘이미지 저장’ 또는 ‘파일에 저장’을 선택하세요.";
+      }
+      await navigator.share({
+        files:[file],
+        title:"안전사고 4컷 만화",
+        text:"4컷 그림만 저장합니다."
+      });
+      if(status) status.textContent = "4컷 그림 저장을 완료했습니다.";
       return;
     }
 
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(pngBlob);
     const link = document.createElement("a");
     link.href = url;
     link.download = fileName;
@@ -472,11 +480,13 @@ async function savePngFile(){
     link.remove();
 
     setTimeout(()=>{
-      if(/iPad|iPhone|iPod/.test(navigator.userAgent)) window.open(url,"_blank","noopener");
+      if(/iPad|iPhone|iPod/.test(navigator.userAgent)){
+        window.open(url,"_blank","noopener");
+      }
       setTimeout(()=>URL.revokeObjectURL(url),60000);
     },300);
 
-    if(status) status.textContent = "PNG 저장을 요청했습니다.";
+    if(status) status.textContent = "4컷 그림 저장을 요청했습니다.";
   }catch(error){
     if(error?.name === "AbortError"){
       if(status) status.textContent = "저장을 취소했습니다.";

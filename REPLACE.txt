@@ -1,9 +1,7 @@
-이미지 API를 v1으로 수정하고 모델 자동 전환을 추가했습니다.
+변경 내용:
+1. PNG 저장 시 2×2 4컷 그림 원본만 저장
+2. 그림 아래 대사·교육포인트·원인설명·수정창은 저장 제외
+3. 첫 화면과 문서에서 Gemma 4 / Nano Banana 표기 제거
+4. 버튼을 AI 그림 생성으로 변경
 
-가장 중요한 교체 파일:
-api/generate-safety-comic.js
-
-권장 Vercel 환경변수:
-IMAGE_MODEL=gemini-3.1-flash-lite-image
-
-파일을 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
+압축 안의 파일을 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
