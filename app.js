@@ -302,8 +302,8 @@ function renderComicPanels(storyboard, imageDataUrl){
       </header>
       <div class="comic-panel-image" data-panel-image="${index}"
         style="background-position:${positions[index]};${imageDataUrl ? `background-image:url('${imageDataUrl}')` : ""}"></div>
-      ${panel.dialogue ? `<p class="comic-panel-dialogue">${escapeHtml(panel.dialogue)}</p>` : ""}
-      <p class="comic-panel-point">${escapeHtml(panel.educationPoint || "")}</p>
+      <p class="comic-panel-dialogue">${escapeHtml(panel.dialogue || " ")}</p>
+      <p class="comic-panel-point">${escapeHtml(panel.educationPoint || " ")}</p>
     </article>
   `).join("");
 }
@@ -424,37 +424,58 @@ async function savePngFile(){
   const originalText = button.textContent;
 
   button.disabled = true;
-  button.textContent = "PNG 준비 중…";
-  if(status) status.textContent = "4컷 그림만 저장 파일로 준비하고 있습니다.";
+  button.textContent = "PNG 생성 중…";
+  if(status) status.textContent = "사고요약과 4컷 교육자료를 저장하고 있습니다.";
 
   try{
+    const target = $("#posterExport");
+    if(!target){
+      throw new Error("저장할 교육자료 영역을 찾지 못했습니다.");
+    }
     if(!currentComicImageDataUrl){
       throw new Error("저장할 4컷 그림이 없습니다.");
     }
 
-    const response = await fetch(currentComicImageDataUrl);
-    if(!response.ok){
-      throw new Error("4컷 그림 데이터를 불러오지 못했습니다.");
+    if(document.fonts?.ready){
+      await document.fonts.ready;
     }
 
-    const sourceBlob = await response.blob();
-    const pngBlob = sourceBlob.type === "image/png"
-      ? sourceBlob
-      : await (async ()=>{
-          const image = await loadDataUrlImage(currentComicImageDataUrl);
-          const canvas = document.createElement("canvas");
-          canvas.width = image.naturalWidth;
-          canvas.height = image.naturalHeight;
-          canvas.getContext("2d").drawImage(image,0,0);
-          return canvasToBlob(canvas);
-        })();
+    const sourceImage = $("#comicImage");
+    if(sourceImage && !sourceImage.complete){
+      await new Promise((resolve,reject)=>{
+        sourceImage.addEventListener("load",resolve,{once:true});
+        sourceImage.addEventListener(
+          "error",
+          ()=>reject(new Error("4컷 그림을 불러오지 못했습니다.")),
+          {once:true}
+        );
+      });
+    }
 
+    // Background images are data URLs. Give Safari one frame to finish painting.
+    await new Promise(resolve=>requestAnimationFrame(
+      ()=>requestAnimationFrame(resolve)
+    ));
+
+    const canvas = await html2canvas(target,{
+      scale:2,
+      backgroundColor:"#ffffff",
+      useCORS:true,
+      allowTaint:false,
+      logging:false,
+      width:target.scrollWidth,
+      height:target.scrollHeight,
+      windowWidth:Math.max(document.documentElement.clientWidth,target.scrollWidth),
+      windowHeight:Math.max(document.documentElement.clientHeight,target.scrollHeight)
+    });
+
+    const blob = await canvasToBlob(canvas);
     const title = sanitizeFileName(
-      $("#materialTitle")?.textContent || "안전사고_4컷만화"
+      $("#materialTitle")?.textContent || "안전사고_교육자료"
     );
     const fileName =
-      `${title}_그림만_${new Date().toISOString().slice(0,10)}.png`;
-    const file = new File([pngBlob],fileName,{type:"image/png"});
+      `${title}_${new Date().toISOString().slice(0,10)}.png`;
+    const file = new File([blob],fileName,{type:"image/png"});
 
     if(navigator.canShare?.({files:[file]}) && navigator.share){
       if(status){
@@ -463,14 +484,14 @@ async function savePngFile(){
       }
       await navigator.share({
         files:[file],
-        title:"안전사고 4컷 만화",
-        text:"4컷 그림만 저장합니다."
+        title:"안전사고 교육자료",
+        text:"사고요약과 4컷 만화가 포함된 교육자료입니다."
       });
-      if(status) status.textContent = "4컷 그림 저장을 완료했습니다.";
+      if(status) status.textContent = "PNG 저장을 완료했습니다.";
       return;
     }
 
-    const url = URL.createObjectURL(pngBlob);
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = fileName;
@@ -486,7 +507,7 @@ async function savePngFile(){
       setTimeout(()=>URL.revokeObjectURL(url),60000);
     },300);
 
-    if(status) status.textContent = "4컷 그림 저장을 요청했습니다.";
+    if(status) status.textContent = "PNG 저장을 요청했습니다.";
   }catch(error){
     if(error?.name === "AbortError"){
       if(status) status.textContent = "저장을 취소했습니다.";
