@@ -364,7 +364,6 @@ function renderResult(data,imageResult){
           <dt>TBM 핵심문구</dt><dd><strong>${escapeHtml(cause.tbmMessage)}</strong></dd>
           <dt>관련 기준 검색어</dt><dd>${escapeHtml((cause.standardKeywords || []).join(", "))}</dd>
         </dl>
-        <div class="notice">법령 조문 번호와 사내 기준은 최신 원문을 확인한 뒤 확정하세요.</div>
       `;
     });
   });
