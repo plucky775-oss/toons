@@ -110,6 +110,21 @@
 
       <div id="storyboardCards" class="storyboard-grid"></div>
 
+      <section class="model-choice">
+        <h3>그림 생성 모델</h3>
+        <div class="model-choice-options">
+          <label>
+            <input id="useGeminiModel" type="checkbox" checked />
+            <span>Gemini</span>
+          </label>
+          <label>
+            <input id="useOpenAIModel" type="checkbox" checked />
+            <span>OpenAI</span>
+          </label>
+        </div>
+        <p>두 모델을 선택하면 같은 대본으로 각각 생성해 비교할 수 있습니다.</p>
+      </section>
+
       <label class="wide-label">
         추가 수정 지시
         <textarea id="revisionNote" maxlength="1000" placeholder="예: 크레인은 사용하지 않았고 사람이 장재를 들고 이동한 장면으로 표현"></textarea>
@@ -135,6 +150,11 @@
       </div>
 
       <div class="export-area">
+        <section id="modelCompareBar" class="model-compare-bar hidden">
+          <strong>생성 결과 비교</strong>
+          <div id="modelCompareButtons"></div>
+        </section>
+
         <div id="posterExport" class="poster-export">
           <div class="summary-banner">
             <strong id="resultSummary"></strong>

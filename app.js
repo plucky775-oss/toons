@@ -3,6 +3,8 @@ let sourceFilesData = [];
 let analysisData = null;
 let educationData = null;
 let currentComicImageDataUrl = null;
+let imageResultsByProvider = {};
+let activeImageProvider = "gemini";
 const MAX_FILES = 8;
 const MAX_PDF_BYTES = 4 * 1024 * 1024;
 const MAX_IMAGE_SOURCE_BYTES = 12 * 1024 * 1024;
@@ -289,6 +291,12 @@ function collectEditedStoryboard(){
 }
 
 
+function speechBubbleClass(index){
+  return index % 2 === 0
+    ? "speech-bubble speech-bubble-right"
+    : "speech-bubble speech-bubble-left";
+}
+
 function renderComicPanels(storyboard, imageDataUrl){
   const panels = $("#comicPanels");
   if(!panels) return;
@@ -301,19 +309,79 @@ function renderComicPanels(storyboard, imageDataUrl){
         <strong>${escapeHtml(panel.title || `${index+1}컷`)}</strong>
       </header>
       <div class="comic-panel-image" data-panel-image="${index}"
-        style="background-position:${positions[index]};${imageDataUrl ? `background-image:url('${imageDataUrl}')` : ""}"></div>
-      <p class="comic-panel-dialogue">${escapeHtml(panel.dialogue || " ")}</p>
+        style="background-position:${positions[index]};${imageDataUrl ? `background-image:url('${imageDataUrl}')` : ""}">
+        ${panel.dialogue ? `
+          <div class="${speechBubbleClass(index)}">
+            ${escapeHtml(panel.dialogue)}
+          </div>
+        ` : ""}
+      </div>
       <p class="comic-panel-point">${escapeHtml(panel.educationPoint || " ")}</p>
     </article>
   `).join("");
 }
-
 function updateComicPanelImages(imageDataUrl){
   const positions = ["0% 0%", "100% 0%", "0% 100%", "100% 100%"];
   document.querySelectorAll("[data-panel-image]").forEach((element,index)=>{
     element.style.backgroundImage = `url('${imageDataUrl}')`;
     element.style.backgroundPosition = positions[index];
   });
+}
+
+
+function providerLabel(provider){
+  return provider === "openai" ? "OpenAI" : "Gemini";
+}
+
+function setActiveImageProvider(provider){
+  const result = imageResultsByProvider[provider];
+  if(!result?.imageDataUrl) return;
+
+  activeImageProvider = provider;
+  currentComicImageDataUrl = result.imageDataUrl;
+
+  $("#comicImage").src = result.imageDataUrl;
+  renderComicPanels(educationData?.storyboard || [], result.imageDataUrl);
+  $("#comicImage").classList.add("hidden");
+  $("#comicPanels").classList.remove("hidden");
+  $("#comicFallback").classList.add("hidden");
+
+  document.querySelectorAll("[data-provider-result]").forEach(button=>{
+    button.classList.toggle("active", button.dataset.providerResult === provider);
+  });
+
+  const providerName = providerLabel(provider);
+  $("#imageStatus").textContent = `${providerName} 결과를 표시하고 있습니다.`;
+}
+
+function renderModelComparison(){
+  const providers = Object.keys(imageResultsByProvider)
+    .filter(provider=>imageResultsByProvider[provider]?.imageDataUrl);
+
+  const bar = $("#modelCompareBar");
+  const buttons = $("#modelCompareButtons");
+
+  if(providers.length < 2){
+    bar?.classList.add("hidden");
+    if(buttons) buttons.innerHTML = "";
+    return;
+  }
+
+  buttons.innerHTML = providers.map(provider=>`
+    <button type="button"
+      data-provider-result="${provider}"
+      class="${provider === activeImageProvider ? "active" : ""}">
+      ${providerLabel(provider)}
+    </button>
+  `).join("");
+
+  buttons.querySelectorAll("[data-provider-result]").forEach(button=>{
+    button.addEventListener("click",()=>{
+      setActiveImageProvider(button.dataset.providerResult);
+    });
+  });
+
+  bar.classList.remove("hidden");
 }
 
 function renderResult(data,imageResult){
@@ -369,6 +437,7 @@ function renderResult(data,imageResult){
   });
   $("#causeButtons button")?.click();
 
+  renderModelComparison();
   $("#resultSection").classList.remove("hidden");
   setStep(4);
   show($("#resultSection"));
@@ -377,22 +446,75 @@ function renderResult(data,imageResult){
 $("#generateImageBtn").addEventListener("click",async ()=>{
   const storyboard = collectEditedStoryboard();
   educationData.storyboard = storyboard;
+
+  const selectedProviders = [];
+  if($("#useGeminiModel")?.checked) selectedProviders.push("gemini");
+  if($("#useOpenAIModel")?.checked) selectedProviders.push("openai");
+
+  if(!selectedProviders.length){
+    $("#imageStatus").textContent = "그림 생성 모델을 하나 이상 선택해주세요.";
+    return;
+  }
+
   $("#generateImageBtn").disabled = true;
-  $("#imageStatus").textContent = "AI가 4컷 만화를 생성하고 있습니다…";
+  imageResultsByProvider = {};
+  $("#imageStatus").textContent =
+    selectedProviders.length === 2
+      ? "Gemini와 OpenAI가 같은 대본으로 4컷을 생성하고 있습니다…"
+      : `${providerLabel(selectedProviders[0])}가 4컷을 생성하고 있습니다…`;
+
+  const commonPayload = {
+    sourceImages:sourceFilesData
+      .filter(item=>item.kind==="image")
+      .slice(0,6)
+      .map(({name,mimeType,data},index)=>({name,mimeType,data,order:index+1})),
+    education:educationData,
+    injuryLevel:"realistic"
+  };
+
+  const requests = selectedProviders.map(async provider=>{
+    const endpoint = provider === "openai"
+      ? "/api/generate-openai-comic"
+      : "/api/generate-safety-comic";
+
+    try{
+      const result = await postJson(endpoint,commonPayload);
+      result.provider = provider;
+      imageResultsByProvider[provider] = result;
+      return {provider,result};
+    }catch(error){
+      return {provider,error};
+    }
+  });
+
   try{
-    const imageResult = await postJson("/api/generate-safety-comic",{
-      sourceImages:sourceFilesData
-        .filter(item=>item.kind==="image")
-        .slice(0,6)
-        .map(({name,mimeType,data},index)=>({name,mimeType,data,order:index+1})),
-      education:educationData,
-      injuryLevel:"realistic"
-    });
-    renderResult(educationData,imageResult);
-    const verificationText = imageResult?.verification?.pass
-      ? (imageResult.regenerated ? " · 오류 보정 후 검증 통과" : " · 자동 검증 통과")
-      : (imageResult?.verification?.skipped ? " · 자동 검증 미완료" : " · 검증 확인 필요");
-    $("#imageStatus").textContent = `그림 생성 완료${verificationText}`;
+    const outcomes = await Promise.all(requests);
+    const successes = outcomes.filter(item=>item.result);
+    const failures = outcomes.filter(item=>item.error);
+
+    if(!successes.length){
+      throw new Error(failures.map(item=>
+        `${providerLabel(item.provider)}: ${item.error.message}`
+      ).join(" / "));
+    }
+
+    const firstProvider =
+      imageResultsByProvider.openai ? "openai" : successes[0].provider;
+    renderResult(educationData,imageResultsByProvider[firstProvider]);
+
+    if(successes.length > 1){
+      renderModelComparison();
+      $("#imageStatus").textContent =
+        "두 모델의 생성이 완료되었습니다. 버튼을 눌러 비교하세요.";
+    }else{
+      $("#imageStatus").textContent =
+        `${providerLabel(successes[0].provider)} 그림 생성이 완료되었습니다.`;
+    }
+
+    if(failures.length){
+      $("#imageStatus").textContent +=
+        ` (${failures.map(item=>providerLabel(item.provider)).join(", ")} 생성 실패)`;
+    }
   }catch(error){
     $("#imageStatus").textContent = `그림 생성 실패: ${error.message}`;
     renderResult(educationData,null);
@@ -400,6 +522,7 @@ $("#generateImageBtn").addEventListener("click",async ()=>{
     $("#generateImageBtn").disabled = false;
   }
 });
+
 
 function canvasToBlob(canvas){
   return new Promise((resolve,reject)=>{
@@ -613,6 +736,7 @@ async function reviseComicImage(){
       education:educationData,
       revisionPanel:selectedPanel,
       revisionNote:note,
+      provider:activeImageProvider,
       sourceImages:sourceFilesData
         .filter(item=>item.kind==="image")
         .slice(0,3)
@@ -626,6 +750,11 @@ async function reviseComicImage(){
     );
 
     currentComicImageDataUrl = composedImageDataUrl;
+    imageResultsByProvider[activeImageProvider] = {
+      ...(imageResultsByProvider[activeImageProvider] || {}),
+      imageDataUrl:composedImageDataUrl,
+      provider:activeImageProvider
+    };
     $("#comicImage").src = composedImageDataUrl;
     updateComicPanelImages(composedImageDataUrl);
     $("#comicImage").classList.add("hidden");

@@ -1,4 +1,8 @@
-화면 하단의 다음 안내문을 제거했습니다.
-법령 조문 번호와 사내 기준은 최신 원문을 확인한 뒤 확정하세요.
+Gemini/OpenAI 비교 생성과 만화식 말풍선을 추가한 수정본입니다.
 
-app.js를 기존 프로젝트에 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.
+Vercel에 추가할 환경변수:
+OPENAI_API_KEY=발급받은 키
+OPENAI_IMAGE_MODEL=gpt-image-2
+OPENAI_IMAGE_QUALITY=medium
+
+압축 안의 파일을 모두 덮어쓴 뒤 GitHub 커밋 및 Vercel Redeploy 하세요.

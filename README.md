@@ -260,3 +260,36 @@ PNG에서 제외:
 - 그림 수정 기능
 - 사고 원인 상세 설명
 - 저장·새 자료 버튼
+
+
+## Gemini / OpenAI 비교 생성
+
+스토리보드 단계에서 다음 모델을 선택할 수 있습니다.
+
+- Gemini
+- OpenAI
+- 두 모델 동시 생성
+
+두 모델을 선택하면 같은 스토리보드로 각각 4컷을 만들고,
+결과 화면의 비교 버튼으로 즉시 전환할 수 있습니다.
+
+Vercel 환경변수:
+
+```text
+GEMINI_API_KEY=...
+IMAGE_MODEL=gemini-3.1-flash-lite-image
+
+OPENAI_API_KEY=...
+OPENAI_IMAGE_MODEL=gpt-image-2
+OPENAI_IMAGE_QUALITY=medium
+```
+
+## 말풍선
+
+이미지 모델은 글자가 없는 그림만 생성합니다.
+한글 대사는 앱의 HTML 말풍선으로 합성하여 글자 깨짐을 방지합니다.
+
+- 말풍선은 그림 상단에 작게 배치
+- 좌우 패널에 따라 꼬리 방향을 달리함
+- 꼬리는 작업자가 있을 가능성이 높은 그림 안쪽 방향을 향함
+- PNG 저장 시 말풍선도 함께 저장
