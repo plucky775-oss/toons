@@ -121,7 +121,7 @@ async function requestRevision(apiKey, model, parts) {
 
 
 async function requestOpenAIRevision(apiKey, currentPanel, prompt) {
-  const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
+  const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5";
   const form = new FormData();
 
   form.append("model", model);
@@ -174,6 +174,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const {
+    currentPanelDataUrl,
+    education,
+    revisionPanel,
+    revisionNote,
+    provider,
+    sourceImages
+  } = req.body || {};
+
   const selectedProvider = provider === "openai" ? "openai" : "gemini";
   const apiKey = selectedProvider === "openai"
     ? process.env.OPENAI_API_KEY
@@ -186,15 +195,6 @@ export default async function handler(req, res) {
         : "GEMINI_API_KEY가 없습니다."
     });
   }
-
-  const {
-    currentPanelDataUrl,
-    education,
-    revisionPanel,
-    revisionNote,
-    provider,
-    sourceImages
-  } = req.body || {};
 
   if (
     !currentPanelDataUrl ||

@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "스토리보드가 필요합니다." });
   }
 
-  const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
+  const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5";
   const quality = process.env.OPENAI_IMAGE_QUALITY || "medium";
 
   const response = await fetch("https://api.openai.com/v1/images/generations", {
